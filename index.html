@@ -75,7 +75,7 @@
         </div>
         <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
           <p class="text-sm text-amber-800">
-            両方の値が必要です。<a href="https://webservice.rakuten.co.jp/app/list" target="_blank" rel="noopener noreferrer" class="underline font-medium">楽天開発者ポータル</a>で確認できます。
+            ⚠️ このアプリは <strong>GitHub Pages</strong> でホストする必要があります。ローカルでは動作しません。
           </p>
         </div>
         <button onclick="saveApiKeys()" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors">
@@ -120,11 +120,16 @@
     </div>
 
     <!-- エラー表示 -->
-    <div id="errorContainer" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl items-center gap-3 text-red-700 hidden">
-      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-      </svg>
-      <p id="errorMessage"></p>
+    <div id="errorContainer" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 hidden">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <div>
+          <p id="errorMessage" class="font-medium"></p>
+          <p id="errorDetail" class="text-sm mt-1"></p>
+        </div>
+      </div>
     </div>
 
     <!-- 結果ヘッダー -->
@@ -216,21 +221,18 @@
       }
     }
 
-    function showError(message) {
+    function showError(message, detail = '') {
       const container = document.getElementById('errorContainer');
-      const messageEl = document.getElementById('errorMessage');
-      messageEl.textContent = message;
+      document.getElementById('errorMessage').textContent = message;
+      document.getElementById('errorDetail').textContent = detail;
       container.classList.remove('hidden');
-      container.classList.add('flex');
     }
 
     function hideError() {
-      const container = document.getElementById('errorContainer');
-      container.classList.add('hidden');
-      container.classList.remove('flex');
+      document.getElementById('errorContainer').classList.add('hidden');
     }
 
-    function searchBooks() {
+    async function searchBooks() {
       hideError();
       
       if (!appId || !accessKey) {
@@ -259,7 +261,7 @@
 
       document.getElementById('initialState').classList.add('hidden');
 
-      // 新しいAPIエンドポイントとパラメータ
+      // APIパラメータ
       const params = new URLSearchParams({
         applicationId: appId,
         accessKey: accessKey,
@@ -267,76 +269,51 @@
         hits: 30,
         sort: 'standard',
         outOfStockFlag: 1,
-        formatVersion: 2
+        formatVersion: 2,
+        format: 'json'
       });
 
       if (minPrice) params.append('minPrice', minPrice);
       if (maxPrice) params.append('maxPrice', maxPrice);
 
-      // JSONP
-      const callbackName = `rakutenCallback_${Date.now()}`;
-      const script = document.createElement('script');
+      const url = `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
 
-      window[callbackName] = (data) => {
-        delete window[callbackName];
-        document.body.removeChild(script);
-        
-        btn.disabled = false;
-        btn.innerHTML = `
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-          検索する
-        `;
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
 
-        if (data.error) {
-          showError(data.error_description || 'APIエラーが発生しました');
+        if (data.error || data.errors) {
+          const errorMsg = data.error_description || data.errors?.errorMessage || 'APIエラー';
+          let detail = '';
+          
+          if (errorMsg.includes('REFERRER')) {
+            detail = 'このサイトのドメインが楽天APIで許可されていません。楽天開発者ポータルの「許可されたWebサイト」にこのサイトのドメインを追加してください。';
+          }
+          
+          showError(errorMsg, detail);
+          resetButton();
           return;
         }
 
-        // formatVersion=2 なので直接アクセス可能
         books = data.Items || [];
-        const totalCount = data.count || 0;
+        displayResults(books, data.count || 0);
 
-        displayResults(books, totalCount);
-      };
+      } catch (err) {
+        showError('通信エラーが発生しました', err.message);
+      }
 
-      script.onerror = () => {
-        delete window[callbackName];
-        if (document.body.contains(script)) {
-          document.body.removeChild(script);
-        }
-        btn.disabled = false;
-        btn.innerHTML = `
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-          検索する
-        `;
-        showError('ネットワークエラーが発生しました');
-      };
+      resetButton();
+    }
 
-      params.append('callback', callbackName);
-      // 新しいエンドポイントを使用
-      script.src = `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
-      document.body.appendChild(script);
-
-      setTimeout(() => {
-        if (window[callbackName]) {
-          delete window[callbackName];
-          if (document.body.contains(script)) {
-            document.body.removeChild(script);
-          }
-          btn.disabled = false;
-          btn.innerHTML = `
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-            検索する
-          `;
-          showError('リクエストがタイムアウトしました');
-        }
-      }, 15000);
+    function resetButton() {
+      const btn = document.getElementById('searchBtn');
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+        検索する
+      `;
     }
 
     function displayResults(booksToShow, totalCount) {
@@ -364,11 +341,6 @@
         return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(price);
       };
 
-      const formatDate = (dateStr) => {
-        if (!dateStr) return '不明';
-        return dateStr;
-      };
-
       const imageHtml = book.largeImageUrl 
         ? `<img src="${book.largeImageUrl}" alt="${book.title}" class="w-full h-full object-cover" style="min-height: 160px">`
         : `<div class="w-full h-40 flex items-center justify-center">
@@ -377,17 +349,12 @@
             </svg>
           </div>`;
 
-      const stockBadge = book.availability === "5" 
-        ? '<span class="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded font-medium">在庫なし</span>'
-        : '';
-
       return `
         <div class="group animate-fade-in" style="animation-delay: ${index * 0.05}s">
           <div class="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-stone-100">
             <div class="flex">
               <div class="relative w-28 flex-shrink-0 bg-gradient-to-br from-stone-100 to-stone-200">
                 ${imageHtml}
-                ${stockBadge}
               </div>
               <div class="flex-1 p-4 flex flex-col">
                 <h3 class="font-bold text-stone-800 line-clamp-2 mb-2 group-hover:text-amber-700 transition-colors font-serif-jp">
@@ -404,7 +371,7 @@
                   </p>
                   <p class="flex items-center gap-2">
                     <span class="text-stone-400 text-xs w-14">発売日</span>
-                    <span>${formatDate(book.salesDate)}</span>
+                    <span>${book.salesDate || '不明'}</span>
                   </p>
                 </div>
                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-stone-100">
@@ -463,9 +430,7 @@
     }
 
     document.getElementById('settingsModal').addEventListener('click', (e) => {
-      if (e.target.id === 'settingsModal') {
-        toggleSettings();
-      }
+      if (e.target.id === 'settingsModal') toggleSettings();
     });
   </script>
 </body>
