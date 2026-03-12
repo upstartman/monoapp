@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>書籍検索 - 楽天ブックス</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Zen Kaku Gothic New', sans-serif; }
+    .font-serif-jp { font-family: 'Noto Serif JP', serif; }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fadeSlideIn 0.5s ease-out both; }
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .animate-spin { animation: spin 1s linear infinite; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-stone-50 via-amber-50/30 to-stone-100">
+  
+  <!-- ヘッダー -->
+  <header class="bg-white/80 backdrop-blur-sm border-b border-stone-200 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-amber-600 to-amber-700 rounded-lg flex items-center justify-center shadow-md">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold text-stone-800 font-serif-jp">書籍検索</h1>
+            <p class="text-xs text-stone-500">楽天ブックス</p>
+          </div>
+        </div>
+        <button onclick="toggleSettings()" id="settingsBtn" class="p-2 rounded-lg transition-colors text-amber-600 bg-amber-50 hover:bg-amber-100" title="API設定">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- API設定モーダル -->
+  <div id="settingsModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-stone-800 font-serif-jp">API設定</h2>
+        <button onclick="toggleSettings()" class="p-1 hover:bg-stone-100 rounded">
+          <svg class="w-5 h-5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-1">アプリケーションID</label>
+          <input type="text" id="appIdInput" placeholder="f73e85f4-2fa7-4c54-..." class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-1">アクセスキー</label>
+          <input type="text" id="accessKeyInput" placeholder="pk_tGwZPVUnMxqhy..." class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm">
+        </div>
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <p class="text-sm text-amber-800">
+            両方の値が必要です。<a href="https://webservice.rakuten.co.jp/app/list" target="_blank" rel="noopener noreferrer" class="underline font-medium">楽天開発者ポータル</a>で確認できます。
+          </p>
+        </div>
+        <button onclick="saveApiKeys()" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors">
+          保存
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <!-- 検索フォーム -->
+    <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 mb-8">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-2">キーワード</label>
+          <div class="relative">
+            <input type="text" id="keyword" placeholder="書籍名を入力..." class="w-full pl-10 pr-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-stone-800 placeholder-stone-400" onkeydown="if(event.key==='Enter')searchBooks()">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-stone-700 mb-2">最低価格</label>
+            <input type="number" id="minPrice" placeholder="0" min="0" class="w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-stone-800">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-stone-700 mb-2">最高価格</label>
+            <input type="number" id="maxPrice" placeholder="10000" min="0" class="w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-stone-800">
+          </div>
+        </div>
+        
+        <button onclick="searchBooks()" id="searchBtn" class="w-full py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-medium rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          検索する
+        </button>
+      </div>
+    </div>
+
+    <!-- エラー表示 -->
+    <div id="errorContainer" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl items-center gap-3 text-red-700 hidden">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+      <p id="errorMessage"></p>
+    </div>
+
+    <!-- 結果ヘッダー -->
+    <div id="resultsHeader" class="flex flex-wrap items-center justify-between gap-4 mb-6 hidden">
+      <p class="text-stone-600" id="resultsCount"></p>
+      <div class="flex items-center gap-2">
+        <select id="sortBy" onchange="sortResults()" class="px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm text-stone-700 bg-white">
+          <option value="standard">関連度順</option>
+          <option value="price">価格順</option>
+          <option value="date">発売日順</option>
+          <option value="title">タイトル順</option>
+        </select>
+        <button onclick="toggleSortOrder()" id="sortOrderBtn" class="p-2 border border-stone-300 rounded-lg hover:bg-stone-50 transition-colors" title="降順">
+          <svg class="w-5 h-5 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 検索結果グリッド -->
+    <div id="resultsGrid" class="grid gap-4 md:grid-cols-2"></div>
+
+    <!-- 初期状態 -->
+    <div id="initialState" class="text-center py-16">
+      <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-100 to-amber-200 rounded-full mb-6">
+        <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+        </svg>
+      </div>
+      <h2 class="text-xl font-bold text-stone-700 mb-2 font-serif-jp">書籍を検索しましょう</h2>
+      <p class="text-stone-500">キーワードと価格範囲を指定して検索できます</p>
+      <button onclick="toggleSettings()" class="mt-4 px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-medium rounded-lg transition-colors">
+        まずAPIキーを設定する
+      </button>
+    </div>
+
+    <!-- 検索結果なし -->
+    <div id="noResults" class="text-center py-16 hidden">
+      <svg class="w-16 h-16 text-stone-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+      </svg>
+      <p class="text-stone-500">条件に一致する書籍が見つかりませんでした</p>
+      <p class="text-sm text-stone-400 mt-2">キーワードや価格範囲を変更してお試しください</p>
+    </div>
+  </main>
+
+  <!-- フッター -->
+  <footer class="border-t border-stone-200 bg-white/50 mt-12">
+    <div class="max-w-6xl mx-auto px-4 py-6 text-center text-sm text-stone-500">
+      <p>楽天ブックス検索APIを使用しています</p>
+    </div>
+  </footer>
+
+  <script>
+    // グローバル変数
+    let appId = localStorage.getItem('rakutenAppId') || '';
+    let accessKey = localStorage.getItem('rakutenAccessKey') || '';
+    let books = [];
+    let sortOrder = 'desc';
+
+    // 初期化
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('appIdInput').value = appId;
+      document.getElementById('accessKeyInput').value = accessKey;
+      updateSettingsButton();
+    });
+
+    function toggleSettings() {
+      const modal = document.getElementById('settingsModal');
+      modal.classList.toggle('hidden');
+    }
+
+    function saveApiKeys() {
+      appId = document.getElementById('appIdInput').value.trim();
+      accessKey = document.getElementById('accessKeyInput').value.trim();
+      localStorage.setItem('rakutenAppId', appId);
+      localStorage.setItem('rakutenAccessKey', accessKey);
+      toggleSettings();
+      updateSettingsButton();
+    }
+
+    function updateSettingsButton() {
+      const btn = document.getElementById('settingsBtn');
+      if (appId && accessKey) {
+        btn.className = 'p-2 rounded-lg transition-colors text-stone-600 hover:bg-stone-100';
+      } else {
+        btn.className = 'p-2 rounded-lg transition-colors text-amber-600 bg-amber-50 hover:bg-amber-100';
+      }
+    }
+
+    function showError(message) {
+      const container = document.getElementById('errorContainer');
+      const messageEl = document.getElementById('errorMessage');
+      messageEl.textContent = message;
+      container.classList.remove('hidden');
+      container.classList.add('flex');
+    }
+
+    function hideError() {
+      const container = document.getElementById('errorContainer');
+      container.classList.add('hidden');
+      container.classList.remove('flex');
+    }
+
+    function searchBooks() {
+      hideError();
+      
+      if (!appId || !accessKey) {
+        toggleSettings();
+        showError('アプリケーションIDとアクセスキーを設定してください');
+        return;
+      }
+
+      const keyword = document.getElementById('keyword').value.trim();
+      if (!keyword) {
+        showError('キーワードを入力してください');
+        return;
+      }
+
+      const minPrice = document.getElementById('minPrice').value;
+      const maxPrice = document.getElementById('maxPrice').value;
+
+      const btn = document.getElementById('searchBtn');
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        検索中...
+      `;
+
+      document.getElementById('initialState').classList.add('hidden');
+
+      // 新しいAPIエンドポイントとパラメータ
+      const params = new URLSearchParams({
+        applicationId: appId,
+        accessKey: accessKey,
+        title: keyword,
+        hits: 30,
+        sort: 'standard',
+        outOfStockFlag: 1,
+        formatVersion: 2
+      });
+
+      if (minPrice) params.append('minPrice', minPrice);
+      if (maxPrice) params.append('maxPrice', maxPrice);
+
+      // JSONP
+      const callbackName = `rakutenCallback_${Date.now()}`;
+      const script = document.createElement('script');
+
+      window[callbackName] = (data) => {
+        delete window[callbackName];
+        document.body.removeChild(script);
+        
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          検索する
+        `;
+
+        if (data.error) {
+          showError(data.error_description || 'APIエラーが発生しました');
+          return;
+        }
+
+        // formatVersion=2 なので直接アクセス可能
+        books = data.Items || [];
+        const totalCount = data.count || 0;
+
+        displayResults(books, totalCount);
+      };
+
+      script.onerror = () => {
+        delete window[callbackName];
+        if (document.body.contains(script)) {
+          document.body.removeChild(script);
+        }
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          検索する
+        `;
+        showError('ネットワークエラーが発生しました');
+      };
+
+      params.append('callback', callbackName);
+      // 新しいエンドポイントを使用
+      script.src = `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
+      document.body.appendChild(script);
+
+      setTimeout(() => {
+        if (window[callbackName]) {
+          delete window[callbackName];
+          if (document.body.contains(script)) {
+            document.body.removeChild(script);
+          }
+          btn.disabled = false;
+          btn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            検索する
+          `;
+          showError('リクエストがタイムアウトしました');
+        }
+      }, 15000);
+    }
+
+    function displayResults(booksToShow, totalCount) {
+      const grid = document.getElementById('resultsGrid');
+      const header = document.getElementById('resultsHeader');
+      const noResults = document.getElementById('noResults');
+      const countEl = document.getElementById('resultsCount');
+
+      if (booksToShow.length === 0) {
+        header.classList.add('hidden');
+        grid.innerHTML = '';
+        noResults.classList.remove('hidden');
+        return;
+      }
+
+      noResults.classList.add('hidden');
+      header.classList.remove('hidden');
+      countEl.innerHTML = `<span class="font-bold text-amber-700">${totalCount.toLocaleString()}</span> 件中 <span class="font-bold text-amber-700">${booksToShow.length}</span> 件を表示`;
+
+      grid.innerHTML = booksToShow.map((book, index) => createBookCard(book, index)).join('');
+    }
+
+    function createBookCard(book, index) {
+      const formatPrice = (price) => {
+        return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(price);
+      };
+
+      const formatDate = (dateStr) => {
+        if (!dateStr) return '不明';
+        return dateStr;
+      };
+
+      const imageHtml = book.largeImageUrl 
+        ? `<img src="${book.largeImageUrl}" alt="${book.title}" class="w-full h-full object-cover" style="min-height: 160px">`
+        : `<div class="w-full h-40 flex items-center justify-center">
+            <svg class="w-10 h-10 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+            </svg>
+          </div>`;
+
+      const stockBadge = book.availability === "5" 
+        ? '<span class="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded font-medium">在庫なし</span>'
+        : '';
+
+      return `
+        <div class="group animate-fade-in" style="animation-delay: ${index * 0.05}s">
+          <div class="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-stone-100">
+            <div class="flex">
+              <div class="relative w-28 flex-shrink-0 bg-gradient-to-br from-stone-100 to-stone-200">
+                ${imageHtml}
+                ${stockBadge}
+              </div>
+              <div class="flex-1 p-4 flex flex-col">
+                <h3 class="font-bold text-stone-800 line-clamp-2 mb-2 group-hover:text-amber-700 transition-colors font-serif-jp">
+                  ${book.title}
+                </h3>
+                <div class="space-y-1 text-sm text-stone-600 flex-1">
+                  <p class="flex items-center gap-2">
+                    <span class="text-stone-400 text-xs w-14">著者</span>
+                    <span class="font-medium truncate">${book.author || '不明'}</span>
+                  </p>
+                  <p class="flex items-center gap-2">
+                    <span class="text-stone-400 text-xs w-14">出版社</span>
+                    <span class="truncate">${book.publisherName || '不明'}</span>
+                  </p>
+                  <p class="flex items-center gap-2">
+                    <span class="text-stone-400 text-xs w-14">発売日</span>
+                    <span>${formatDate(book.salesDate)}</span>
+                  </p>
+                </div>
+                <div class="flex items-center justify-between mt-3 pt-3 border-t border-stone-100">
+                  <span class="text-lg font-bold text-amber-700 font-serif-jp">${formatPrice(book.itemPrice)}</span>
+                  <a href="${book.itemUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded transition-colors">
+                    購入する
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function sortResults() {
+      const sortBy = document.getElementById('sortBy').value;
+      
+      const sortedBooks = [...books].sort((a, b) => {
+        let comparison = 0;
+        switch (sortBy) {
+          case 'price':
+            comparison = a.itemPrice - b.itemPrice;
+            break;
+          case 'date':
+            comparison = (a.salesDate || '').localeCompare(b.salesDate || '');
+            break;
+          case 'title':
+            comparison = a.title.localeCompare(b.title);
+            break;
+          default:
+            return 0;
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+
+      const grid = document.getElementById('resultsGrid');
+      grid.innerHTML = sortedBooks.map((book, index) => createBookCard(book, index)).join('');
+    }
+
+    function toggleSortOrder() {
+      sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+      const btn = document.getElementById('sortOrderBtn');
+      btn.title = sortOrder === 'asc' ? '昇順' : '降順';
+      
+      if (sortOrder === 'asc') {
+        btn.innerHTML = `<svg class="w-5 h-5 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>`;
+      } else {
+        btn.innerHTML = `<svg class="w-5 h-5 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"></path></svg>`;
+      }
+      
+      sortResults();
+    }
+
+    document.getElementById('settingsModal').addEventListener('click', (e) => {
+      if (e.target.id === 'settingsModal') {
+        toggleSettings();
+      }
+    });
+  </script>
+</body>
+</html>
