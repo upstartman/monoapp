@@ -136,7 +136,7 @@
       </div>
     </div>
 
-    <!-- 検索統計（デバッグ用） -->
+    <!-- 検索統計 -->
     <div id="statsContainer" class="mb-6 p-4 bg-gray-100 border border-gray-300 rounded-xl hidden">
       <h3 class="font-bold text-gray-700 mb-2">📊 検索統計</h3>
       <div id="statsContent" class="text-sm text-gray-600 font-mono"></div>
@@ -163,7 +163,7 @@
       </div>
       <div class="flex items-center gap-2">
         <select id="sortBy" onchange="sortAndDisplayResults()" class="px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm text-stone-700 bg-white">
-          <option value="standard">関連度順</option>
+          <option value="standard">ISBN順</option>
           <option value="priceAsc">価格が安い順</option>
           <option value="priceDesc">価格が高い順</option>
           <option value="dateDesc">発売日が新しい順</option>
@@ -213,7 +213,9 @@
     // 設定
     const MAX_KEYWORDS = 10;
     const HITS_PER_PAGE = 30;
-    const API_WAIT_MS = 400;
+    const API_WAIT_MS = 1500;           // 通常の待機時間（1.5秒）
+    const RATE_LIMIT_WAIT_MS = 5000;    // 429エラー時の待機時間（5秒）
+    const MAX_RETRIES = 3;              // 最大リトライ回数
 
     // グローバル変数
     let keywords = [];
@@ -373,15 +375,19 @@
       const content = document.getElementById('statsContent');
       
       let html = `
-        <div>API呼び出し: 成功 ${stats.successCount}回 / 失敗 ${stats.errorCount}回</div>
+        <div>API呼び出し: 成功 ${stats.successCount}回 / リトライ ${stats.retryCount}回</div>
         <div>取得書籍数（重複含む）: ${stats.totalFetched}件</div>
         <div>ユニーク書籍数（ISBN重複除去後）: ${stats.uniqueCount}件</div>
         <div>価格フィルター後: ${stats.filteredCount}件</div>
         <div class="mt-2 text-xs">キーワード別取得数:</div>
       `;
       
-      for (const [kw, count] of Object.entries(stats.keywordCounts)) {
-        html += `<div class="ml-2">・「${escapeHtml(kw)}」: ${count}件</div>`;
+      for (const [kw, info] of Object.entries(stats.keywordResults)) {
+        if (info.success) {
+          html += `<div class="ml-2 text-green-700">✅「${escapeHtml(kw)}」: ${info.count}件</div>`;
+        } else {
+          html += `<div class="ml-2 text-red-600">❌「${escapeHtml(kw)}」: ${info.error}</div>`;
+        }
       }
       
       content.innerHTML = html;
@@ -392,8 +398,8 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // API呼び出し（1ページのみ・シンプル化）
-    async function fetchBooksPage(keyword) {
+    // API呼び出し（リトライ付き）
+    async function fetchBooksWithRetry(keyword, keywordIndex, totalKeywords) {
       const params = new URLSearchParams({
         applicationId: APP_ID,
         accessKey: ACCESS_KEY,
@@ -408,18 +414,51 @@
 
       const url = `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
       
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 1) {
+            showProgress(`検索中... (${keywordIndex}/${totalKeywords}) 「${keyword}」 リトライ ${attempt}/${MAX_RETRIES}`);
+            searchStats.retryCount++;
+          }
+          
+          const response = await fetch(url);
+          
+          // 429 Too Many Requests
+          if (response.status === 429) {
+            console.warn(`Rate limited for "${keyword}", waiting ${RATE_LIMIT_WAIT_MS}ms...`);
+            if (attempt < MAX_RETRIES) {
+              showProgress(`検索中... (${keywordIndex}/${totalKeywords}) 「${keyword}」 レート制限のため${RATE_LIMIT_WAIT_MS/1000}秒待機中...`);
+              await wait(RATE_LIMIT_WAIT_MS);
+              continue;
+            }
+            throw new Error('レート制限（429）- リトライ上限');
+          }
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const data = await response.json();
+          
+          if (data.error || data.errors) {
+            throw new Error(data.error_description || data.errors?.errorMessage || 'API Error');
+          }
+          
+          return { success: true, items: data.Items || [] };
+          
+        } catch (err) {
+          console.error(`Attempt ${attempt} failed for "${keyword}":`, err);
+          
+          if (attempt < MAX_RETRIES) {
+            await wait(RATE_LIMIT_WAIT_MS);
+            continue;
+          }
+          
+          return { success: false, error: err.message, items: [] };
+        }
       }
       
-      const data = await response.json();
-      
-      if (data.error || data.errors) {
-        throw new Error(data.error_description || data.errors?.errorMessage || 'API Error');
-      }
-      
-      return data.Items || [];
+      return { success: false, error: 'リトライ上限', items: [] };
     }
 
     // 書籍検索
@@ -449,11 +488,11 @@
       // 統計情報
       searchStats = {
         successCount: 0,
-        errorCount: 0,
+        retryCount: 0,
         totalFetched: 0,
         uniqueCount: 0,
         filteredCount: 0,
-        keywordCounts: {}
+        keywordResults: {}
       };
 
       // 全書籍を格納（ISBN -> book）
@@ -464,28 +503,27 @@
         const keyword = keywords[i];
         showProgress(`検索中... (${i + 1}/${keywords.length}) 「${keyword}」`);
         
-        try {
-          const items = await fetchBooksPage(keyword);
-          
+        const result = await fetchBooksWithRetry(keyword, i + 1, keywords.length);
+        
+        if (result.success) {
           searchStats.successCount++;
-          searchStats.keywordCounts[keyword] = items.length;
-          searchStats.totalFetched += items.length;
+          searchStats.totalFetched += result.items.length;
+          searchStats.keywordResults[keyword] = { success: true, count: result.items.length };
           
           // ISBNで重複チェック
-          for (const book of items) {
+          for (const book of result.items) {
             const key = book.isbn || `url:${book.itemUrl}`;
             if (!booksMap.has(key)) {
               booksMap.set(key, book);
             }
           }
-        } catch (err) {
-          console.error(`Error fetching "${keyword}":`, err);
-          searchStats.errorCount++;
-          searchStats.keywordCounts[keyword] = `エラー: ${err.message}`;
+        } else {
+          searchStats.keywordResults[keyword] = { success: false, error: result.error };
         }
         
-        // 次のAPI呼び出し前に待機
+        // 次のAPI呼び出し前に十分待機
         if (i < keywords.length - 1) {
+          showProgress(`検索中... 次のキーワードまで待機中...`);
           await wait(API_WAIT_MS);
         }
       }
@@ -558,7 +596,7 @@
           sortedBooks.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
           break;
         default:
-          // ISBNソート（デフォルト - 一貫性のため）
+          // ISBN順（デフォルト - 一貫性のため）
           sortedBooks.sort((a, b) => (a.isbn || '').localeCompare(b.isbn || ''));
           break;
       }
