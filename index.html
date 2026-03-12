@@ -136,6 +136,12 @@
       </div>
     </div>
 
+    <!-- 検索統計（デバッグ用） -->
+    <div id="statsContainer" class="mb-6 p-4 bg-gray-100 border border-gray-300 rounded-xl hidden">
+      <h3 class="font-bold text-gray-700 mb-2">📊 検索統計</h3>
+      <div id="statsContent" class="text-sm text-gray-600 font-mono"></div>
+    </div>
+
     <!-- エラー表示 -->
     <div id="errorContainer" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 hidden">
       <div class="flex items-start gap-3">
@@ -205,15 +211,15 @@
     const ACCESS_KEY = 'pk_tGwZPVUnMxqhyTKA5UBTZJpqno2UXiMV5eKvBf3zfUp';
 
     // 設定
-    const MAX_KEYWORDS = 10;        // 最大キーワード数
-    const PAGES_PER_KEYWORD = 2;    // 各キーワードで取得するページ数（固定）
-    const HITS_PER_PAGE = 30;       // 1ページあたりの取得件数
-    const API_WAIT_MS = 350;        // API呼び出し間の待機時間（ミリ秒）
+    const MAX_KEYWORDS = 10;
+    const HITS_PER_PAGE = 30;
+    const API_WAIT_MS = 400;
 
     // グローバル変数
     let keywords = [];
-    let allBooks = [];      // API取得結果（全件・重複なし）
-    let filteredBooks = []; // 価格フィルター適用後
+    let allBooks = [];
+    let filteredBooks = [];
+    let searchStats = {};
 
     // ローカルストレージのキー
     const STORAGE_KEYS = {
@@ -229,7 +235,6 @@
       updateKeywordCounter();
     });
 
-    // 保存データの読み込み
     function loadSavedData() {
       const savedKeywords = localStorage.getItem(STORAGE_KEYS.keywords);
       if (savedKeywords) {
@@ -247,14 +252,12 @@
       }
     }
 
-    // データの保存
     function saveData() {
       localStorage.setItem(STORAGE_KEYS.keywords, JSON.stringify(keywords));
       localStorage.setItem(STORAGE_KEYS.minPrice, document.getElementById('minPrice').value);
       localStorage.setItem(STORAGE_KEYS.maxPrice, document.getElementById('maxPrice').value);
     }
 
-    // キーワードカウンター更新
     function updateKeywordCounter() {
       const counter = document.getElementById('keywordCounter');
       const addBtn = document.getElementById('addKeywordBtn');
@@ -279,11 +282,8 @@
       }
     }
 
-    // キーワード追加
     function addKeyword() {
-      if (keywords.length >= MAX_KEYWORDS) {
-        return;
-      }
+      if (keywords.length >= MAX_KEYWORDS) return;
       
       const input = document.getElementById('keywordInput');
       const keyword = input.value.trim();
@@ -297,7 +297,6 @@
       }
     }
 
-    // キーワード削除
     function removeKeyword(index) {
       keywords.splice(index, 1);
       renderKeywordTags();
@@ -305,7 +304,6 @@
       saveData();
     }
 
-    // キーワードタグの描画
     function renderKeywordTags() {
       const container = document.getElementById('keywordTags');
       
@@ -322,7 +320,6 @@
       `).join('');
     }
 
-    // HTMLエスケープ
     function escapeHtml(str) {
       if (!str) return '';
       return str.replace(/&/g, '&amp;')
@@ -332,7 +329,6 @@
                 .replace(/'/g, '&#039;');
     }
 
-    // 全クリア
     function clearAll() {
       keywords = [];
       document.getElementById('keywordInput').value = '';
@@ -348,6 +344,7 @@
       document.getElementById('resultsHeader').classList.add('hidden');
       document.getElementById('noResults').classList.add('hidden');
       document.getElementById('initialState').classList.remove('hidden');
+      document.getElementById('statsContainer').classList.add('hidden');
     }
 
     function showError(message, detail = '') {
@@ -371,19 +368,38 @@
       document.getElementById('progressContainer').classList.add('hidden');
     }
 
-    // 待機関数
+    function showStats(stats) {
+      const container = document.getElementById('statsContainer');
+      const content = document.getElementById('statsContent');
+      
+      let html = `
+        <div>API呼び出し: 成功 ${stats.successCount}回 / 失敗 ${stats.errorCount}回</div>
+        <div>取得書籍数（重複含む）: ${stats.totalFetched}件</div>
+        <div>ユニーク書籍数（ISBN重複除去後）: ${stats.uniqueCount}件</div>
+        <div>価格フィルター後: ${stats.filteredCount}件</div>
+        <div class="mt-2 text-xs">キーワード別取得数:</div>
+      `;
+      
+      for (const [kw, count] of Object.entries(stats.keywordCounts)) {
+        html += `<div class="ml-2">・「${escapeHtml(kw)}」: ${count}件</div>`;
+      }
+      
+      content.innerHTML = html;
+      container.classList.remove('hidden');
+    }
+
     function wait(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // API呼び出し（1回・リトライ付き）
-    async function fetchBooksPage(keyword, page, retryCount = 0) {
+    // API呼び出し（1ページのみ・シンプル化）
+    async function fetchBooksPage(keyword) {
       const params = new URLSearchParams({
         applicationId: APP_ID,
         accessKey: ACCESS_KEY,
         title: keyword,
         hits: HITS_PER_PAGE,
-        page: page,
+        page: 1,
         sort: 'standard',
         outOfStockFlag: 1,
         formatVersion: 2,
@@ -392,31 +408,21 @@
 
       const url = `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
       
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        // エラーチェック
-        if (data.error || data.errors) {
-          console.warn(`API Error for "${keyword}" page ${page}:`, data);
-          return { items: [], error: true };
-        }
-        
-        return { items: data.Items || [], error: false };
-      } catch (err) {
-        console.warn(`Fetch error for "${keyword}" page ${page}:`, err);
-        
-        // リトライ（最大2回）
-        if (retryCount < 2) {
-          await wait(500);
-          return fetchBooksPage(keyword, page, retryCount + 1);
-        }
-        
-        return { items: [], error: true };
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
+      
+      const data = await response.json();
+      
+      if (data.error || data.errors) {
+        throw new Error(data.error_description || data.errors?.errorMessage || 'API Error');
+      }
+      
+      return data.Items || [];
     }
 
-    // 書籍検索（複数キーワードOR検索）
+    // 書籍検索
     async function searchBooks() {
       hideError();
       hideProgress();
@@ -426,7 +432,6 @@
         return;
       }
 
-      // 入力値を保存
       saveData();
 
       const btn = document.getElementById('searchBtn');
@@ -439,68 +444,84 @@
       `;
 
       document.getElementById('initialState').classList.add('hidden');
+      document.getElementById('statsContainer').classList.add('hidden');
 
-      // ISBNをキーにしたMapで重複を確実に防止
+      // 統計情報
+      searchStats = {
+        successCount: 0,
+        errorCount: 0,
+        totalFetched: 0,
+        uniqueCount: 0,
+        filteredCount: 0,
+        keywordCounts: {}
+      };
+
+      // 全書籍を格納（ISBN -> book）
       const booksMap = new Map();
-      
-      // 総API呼び出し回数を計算
-      const totalCalls = keywords.length * PAGES_PER_KEYWORD;
-      let currentCall = 0;
 
-      // 各キーワードを順番に処理（固定ページ数）
+      // 各キーワードを順番に処理
       for (let i = 0; i < keywords.length; i++) {
         const keyword = keywords[i];
+        showProgress(`検索中... (${i + 1}/${keywords.length}) 「${keyword}」`);
         
-        for (let page = 1; page <= PAGES_PER_KEYWORD; page++) {
-          currentCall++;
-          showProgress(`検索中... (${currentCall}/${totalCalls}) 「${keyword}」 ページ${page}`);
+        try {
+          const items = await fetchBooksPage(keyword);
           
-          // API呼び出し
-          const result = await fetchBooksPage(keyword, page);
+          searchStats.successCount++;
+          searchStats.keywordCounts[keyword] = items.length;
+          searchStats.totalFetched += items.length;
           
-          // 結果を追加（ISBNで重複チェック）
-          for (const book of result.items) {
-            const key = book.isbn || book.itemUrl;
-            if (key && !booksMap.has(key)) {
+          // ISBNで重複チェック
+          for (const book of items) {
+            const key = book.isbn || `url:${book.itemUrl}`;
+            if (!booksMap.has(key)) {
               booksMap.set(key, book);
             }
           }
-          
-          // 次のAPI呼び出し前に待機（最後以外）
-          if (currentCall < totalCalls) {
-            await wait(API_WAIT_MS);
-          }
+        } catch (err) {
+          console.error(`Error fetching "${keyword}":`, err);
+          searchStats.errorCount++;
+          searchStats.keywordCounts[keyword] = `エラー: ${err.message}`;
+        }
+        
+        // 次のAPI呼び出し前に待機
+        if (i < keywords.length - 1) {
+          await wait(API_WAIT_MS);
         }
       }
 
       hideProgress();
-      
-      // Mapから配列に変換
+
+      // Mapから配列に変換し、ISBNでソート（一貫性のため）
       allBooks = Array.from(booksMap.values());
+      allBooks.sort((a, b) => {
+        const isbnA = a.isbn || '';
+        const isbnB = b.isbn || '';
+        return isbnA.localeCompare(isbnB);
+      });
       
-      console.log(`検索完了: ${keywords.length}キーワード × ${PAGES_PER_KEYWORD}ページ = ${totalCalls}回のAPI呼び出し`);
-      console.log(`取得件数: ${allBooks.length}件（重複除去済み）`);
+      searchStats.uniqueCount = allBooks.length;
       
-      // 価格フィルタリングを適用して表示
+      // 価格フィルタリング
       applyPriceFilterAndDisplay();
+      
+      // 統計表示
+      showStats(searchStats);
       
       resetButton();
     }
 
-    // 価格フィルタリングを適用して表示
     function applyPriceFilterAndDisplay() {
       const minPrice = parseInt(document.getElementById('minPrice').value) || 0;
       const maxPrice = parseInt(document.getElementById('maxPrice').value) || Infinity;
       
-      // 価格フィルタリング
       filteredBooks = allBooks.filter(book => {
         const price = book.itemPrice || 0;
         return price >= minPrice && price <= maxPrice;
       });
       
-      console.log(`価格フィルター: ${allBooks.length}件 → ${filteredBooks.length}件 (${minPrice}円〜${maxPrice === Infinity ? '上限なし' : maxPrice + '円'})`);
+      searchStats.filteredCount = filteredBooks.length;
       
-      // ソートして表示
       sortAndDisplayResults();
     }
 
@@ -515,7 +536,6 @@
       `;
     }
 
-    // ソートして表示
     function sortAndDisplayResults() {
       const sortBy = document.getElementById('sortBy').value;
       
@@ -538,7 +558,8 @@
           sortedBooks.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
           break;
         default:
-          // 関連度順（元の順序を維持）
+          // ISBNソート（デフォルト - 一貫性のため）
+          sortedBooks.sort((a, b) => (a.isbn || '').localeCompare(b.isbn || ''));
           break;
       }
 
@@ -564,7 +585,6 @@
       
       countEl.innerHTML = `<span class="font-bold text-amber-700">${booksToShow.length}</span> 件の書籍が見つかりました`;
       
-      // フィルター情報
       const minPrice = document.getElementById('minPrice').value;
       const maxPrice = document.getElementById('maxPrice').value;
       let filterText = '';
