@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>野茂家Youtube再生リスト集</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary:#6366f1; --accent:#f472b6; --bg-dark:#0f0f1a; --bg-card:rgba(255,255,255,0.03); --text-primary:#fff; --text-secondary:rgba(255,255,255,0.6); --glass:rgba(255,255,255,0.05); --glass-border:rgba(255,255,255,0.1); --youtube-red:#ff0000; }
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        body { font-family:'Noto Sans JP',sans-serif; background:var(--bg-dark); color:var(--text-primary); min-height:100vh; font-size:16px; line-height:1.5; }
+        .bg-animation { position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; background:radial-gradient(circle at 20% 80%,rgba(99,102,241,0.15) 0%,transparent 50%),radial-gradient(circle at 80% 20%,rgba(244,114,182,0.12) 0%,transparent 50%); }
+        .header { position:fixed; top:0; left:0; right:0; z-index:100; padding:12px 16px; background:rgba(15,15,26,0.95); backdrop-filter:blur(20px); border-bottom:1px solid var(--glass-border); }
+        .header-content { display:flex; justify-content:space-between; align-items:center; max-width:600px; margin:0 auto; }
+        .logo { display:flex; align-items:center; gap:10px; cursor:pointer; }
+        .logo-icon { width:36px; height:36px; background:linear-gradient(135deg,var(--primary),var(--accent)); border-radius:10px; display:flex; align-items:center; justify-content:center; }
+        .logo-icon svg { width:20px; height:20px; fill:white; }
+        .logo-text { font-size:16px; font-weight:700; background:linear-gradient(135deg,#fff,rgba(255,255,255,0.8)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .header-buttons { display:flex; gap:8px; }
+        .header-btn { width:40px; height:40px; background:var(--glass); border:1px solid var(--glass-border); border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+        .header-btn svg { width:22px; height:22px; fill:var(--text-primary); }
+        .header-btn.add-btn { background:linear-gradient(135deg,var(--primary),var(--accent)); }
+        .sync-indicator { position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#22c55e; border-radius:50%; border:2px solid var(--bg-dark); }
+        .sync-indicator.syncing { background:#f59e0b; animation:pulse 1s infinite; }
+        .sync-indicator.error { background:#ef4444; }
+        .nav-drawer { position:fixed; top:61px; left:0; right:0; bottom:0; background:rgba(15,15,26,0.98); z-index:99; transform:translateY(-100%); opacity:0; transition:all 0.3s ease; padding:20px; overflow-y:auto; }
+        .nav-drawer.open { transform:translateY(0); opacity:1; }
+        .nav-drawer-item { display:block; padding:16px 20px; color:var(--text-primary); font-size:18px; font-weight:500; border-radius:12px; margin-bottom:8px; cursor:pointer; }
+        .nav-drawer-item:hover,.nav-drawer-item.active { background:var(--glass); }
+        .nav-drawer-item.active { background:linear-gradient(135deg,var(--primary),var(--accent)); }
+        .main { padding:80px 16px 40px; max-width:600px; margin:0 auto; }
+        .page { display:none; }
+        .page.active { display:block; animation:fadeIn 0.4s ease; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(15px);} to{opacity:1;transform:translateY(0);} }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+        .hero { text-align:center; padding:30px 0 40px; }
+        .hero-badge { display:inline-flex; align-items:center; gap:8px; padding:6px 14px; background:var(--glass); border:1px solid var(--glass-border); border-radius:50px; font-size:12px; color:var(--text-secondary); margin-bottom:20px; }
+        .hero-badge span { width:6px; height:6px; background:#22c55e; border-radius:50%; animation:pulse 2s infinite; }
+        .hero-title { font-size:32px; font-weight:900; line-height:1.2; margin-bottom:16px; }
+        .hero-title .gradient { background:linear-gradient(135deg,var(--primary),var(--accent),#22d3ee); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .hero-subtitle { font-size:14px; color:var(--text-secondary); line-height:1.7; }
+        .section-title { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+        .section-title h2 { font-size:18px; font-weight:600; }
+        .section-line { flex:1; height:1px; background:linear-gradient(90deg,var(--glass-border),transparent); }
+        .cards-grid { display:flex; flex-direction:column; gap:16px; }
+        .year-card { background:var(--bg-card); border:1px solid var(--glass-border); border-radius:16px; overflow:hidden; cursor:pointer; transition:all 0.3s ease; display:flex; align-items:center; }
+        .year-card:active { transform:scale(0.98); }
+        .card-visual { width:80px; height:80px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .card-year { font-family:'Outfit',sans-serif; font-size:24px; font-weight:700; color:white; }
+        .card-content { flex:1; padding:16px; }
+        .card-title { font-size:16px; font-weight:600; margin-bottom:4px; }
+        .card-description { font-size:12px; color:var(--text-secondary); }
+        .card-arrow { width:40px; height:40px; display:flex; align-items:center; justify-content:center; margin-right:12px; }
+        .card-arrow svg { width:20px; height:20px; fill:var(--text-secondary); }
+        .year-page-header { margin-bottom:24px; }
+        .back-button { display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:var(--glass); border:1px solid var(--glass-border); border-radius:10px; color:var(--text-secondary); font-size:14px; cursor:pointer; margin-bottom:20px; }
+        .back-button svg { width:18px; height:18px; fill:currentColor; }
+        .year-page-title { display:flex; align-items:center; gap:16px; }
+        .year-badge { font-family:'Outfit',sans-serif; font-size:36px; font-weight:700; padding:10px 20px; border-radius:14px; color:white; }
+        .year-page-info h1 { font-size:20px; font-weight:700; margin-bottom:4px; }
+        .year-page-info p { font-size:13px; color:var(--text-secondary); }
+        .video-section { margin-bottom:32px; }
+        .month-title { display:flex; align-items:center; gap:10px; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--glass-border); }
+        .month-title h3 { font-size:16px; font-weight:600; }
+        .month-count { padding:3px 10px; background:var(--glass); border-radius:20px; font-size:11px; color:var(--text-secondary); }
+        .video-card { display:block; background:var(--bg-card); border:1px solid var(--glass-border); border-radius:16px; overflow:hidden; margin-bottom:16px; text-decoration:none; color:inherit; transition:all 0.3s ease; position:relative; }
+        .video-card:active { transform:scale(0.98); }
+        .video-thumbnail { position:relative; width:100%; padding-top:56.25%; background:linear-gradient(135deg,#1a1a2e,#16213e); overflow:hidden; }
+        .video-thumbnail img { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+        .video-thumbnail-overlay { position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; }
+        .play-btn { width:68px; height:68px; background:var(--youtube-red); border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 32px rgba(255,0,0,0.5); }
+        .play-btn svg { width:28px; height:28px; fill:white; margin-left:4px; }
+        .playlist-tag { position:absolute; top:12px; right:12px; background:rgba(0,0,0,0.8); padding:6px 12px; border-radius:8px; font-size:11px; font-weight:500; display:flex; align-items:center; gap:6px; }
+        .playlist-tag svg { width:14px; height:14px; fill:white; }
+        .video-info { padding:16px; }
+        .video-info h3 { font-size:15px; font-weight:600; margin-bottom:6px; line-height:1.4; }
+        .video-info p { font-size:13px; color:var(--text-secondary); margin-bottom:8px; }
+        .video-meta { display:flex; align-items:center; gap:6px; color:var(--text-secondary); font-size:12px; }
+        .video-meta svg { width:14px; height:14px; fill:currentColor; }
+        .delete-btn { position:absolute; top:12px; left:12px; width:32px; height:32px; background:rgba(239,68,68,0.9); border:none; border-radius:8px; display:none; align-items:center; justify-content:center; cursor:pointer; z-index:10; }
+        .delete-btn svg { width:18px; height:18px; fill:white; }
+        .edit-mode .delete-btn { display:flex; }
+        .empty-page { text-align:center; padding:60px 20px; }
+        .empty-icon { width:64px; height:64px; margin:0 auto 20px; background:var(--glass); border-radius:50%; display:flex; align-items:center; justify-content:center; }
+        .empty-icon svg { width:32px; height:32px; fill:var(--text-secondary); }
+        .empty-page h2 { font-size:18px; margin-bottom:8px; }
+        .empty-page p { font-size:14px; color:var(--text-secondary); }
+        .footer { margin-top:60px; padding:24px 16px; border-top:1px solid var(--glass-border); text-align:center; }
+        .footer-logo { display:flex; align-items:center; justify-content:center; gap:8px; color:var(--text-secondary); font-size:13px; margin-bottom:8px; }
+        .footer-logo svg { width:18px; height:18px; fill:currentColor; }
+        .footer-text { font-size:12px; color:var(--text-secondary); }
+        .year-2026 .card-visual,.year-2026 .year-badge { background:linear-gradient(135deg,#8b5cf6,#6366f1); }
+        .year-2025 .card-visual,.year-2025 .year-badge { background:linear-gradient(135deg,#ec4899,#f472b6); }
+        .year-2024 .card-visual,.year-2024 .year-badge { background:linear-gradient(135deg,#06b6d4,#22d3ee); }
+        .year-2023 .card-visual,.year-2023 .year-badge { background:linear-gradient(135deg,#10b981,#34d399); }
+        .year-2022 .card-visual,.year-2022 .year-badge { background:linear-gradient(135deg,#f59e0b,#fbbf24); }
+        .modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:200; display:none; align-items:center; justify-content:center; padding:20px; }
+        .modal.open { display:flex; }
+        .modal-content { background:#1a1a2e; border-radius:20px; width:100%; max-width:400px; max-height:90vh; overflow-y:auto; border:1px solid var(--glass-border); }
+        .modal-header { padding:20px; border-bottom:1px solid var(--glass-border); display:flex; justify-content:space-between; align-items:center; }
+        .modal-header h2 { font-size:18px; font-weight:700; }
+        .modal-close { width:36px; height:36px; background:var(--glass); border:none; border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+        .modal-close svg { width:20px; height:20px; fill:var(--text-primary); }
+        .modal-body { padding:20px; }
+        .form-group { margin-bottom:20px; }
+        .form-group label { display:block; font-size:14px; font-weight:500; margin-bottom:8px; color:var(--text-secondary); }
+        .form-group input,.form-group select,.form-group textarea { width:100%; padding:14px 16px; background:var(--glass); border:1px solid var(--glass-border); border-radius:12px; color:var(--text-primary); font-size:15px; font-family:inherit; }
+        .form-group input:focus,.form-group select:focus,.form-group textarea:focus { outline:none; border-color:var(--primary); }
+        .form-group textarea { resize:vertical; min-height:80px; }
+        .form-group select option { background:#1a1a2e; }
+        .form-hint { font-size:12px; color:var(--text-secondary); margin-top:6px; }
+        .preview-card { background:var(--glass); border-radius:12px; padding:12px; margin-bottom:20px; }
+        .preview-card img { width:100%; border-radius:8px; margin-bottom:8px; }
+        .preview-card .preview-title { font-size:14px; font-weight:500; }
+        .btn { width:100%; padding:16px; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+        .btn-primary { background:linear-gradient(135deg,var(--primary),var(--accent)); color:white; }
+        .btn-secondary { background:var(--glass); color:var(--text-primary); border:1px solid var(--glass-border); margin-top:10px; }
+        .btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .btn svg { width:20px; height:20px; fill:currentColor; }
+        .edit-mode-banner { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:linear-gradient(135deg,#ef4444,#f97316); padding:12px 24px; border-radius:50px; font-size:14px; font-weight:500; z-index:150; display:none; align-items:center; gap:10px; box-shadow:0 8px 32px rgba(239,68,68,0.4); }
+        .edit-mode-banner.show { display:flex; }
+        .edit-mode-banner button { background:white; color:#ef4444; border:none; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600; cursor:pointer; }
+        .loading-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:var(--bg-dark); z-index:300; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        .loading-spinner { width:48px; height:48px; border:4px solid var(--glass-border); border-top-color:var(--primary); border-radius:50%; animation:spin 1s linear infinite; margin-bottom:16px; }
+        @keyframes spin { to{transform:rotate(360deg);} }
+        .loading-text { color:var(--text-secondary); font-size:14px; }
+        .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:rgba(34,197,94,0.9); color:white; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:500; z-index:250; display:none; }
+        .toast.show { display:block; animation:fadeIn 0.3s ease; }
+        .toast.error { background:rgba(239,68,68,0.9); }
+    </style>
+</head>
+<body>
+    <div class="bg-animation"></div>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">読み込み中...</div>
+    </div>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo" onclick="showPage('home')">
+                <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+                <span class="logo-text">野茂家 Videos</span>
+            </div>
+            <div class="header-buttons">
+                <div class="header-btn add-btn" onclick="openAddModal()" style="position:relative;">
+                    <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    <div class="sync-indicator" id="syncIndicator"></div>
+                </div>
+                <div class="header-btn" onclick="toggleMenu()"><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></div>
+            </div>
+        </div>
+    </header>
+    <nav class="nav-drawer" id="navDrawer"></nav>
+    <main class="main" id="mainContent"></main>
+    <footer class="footer">
+        <div class="footer-logo"><svg viewBox="0 0 24 24"><path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>野茂家 Videos</div>
+        <p class="footer-text">© 2022-2026</p>
+    </footer>
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📹 動画を追加</h2>
+                <button class="modal-close" onclick="closeAddModal()"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>YouTubeリンクを貼り付け</label>
+                    <textarea id="youtubeUrl" placeholder="再生リストまたは動画のURLを貼り付け"></textarea>
+                    <div class="form-hint">再生リストURL、または再生リスト内の動画URLを貼り付け</div>
+                </div>
+                <div id="previewArea" style="display:none;">
+                    <div class="preview-card">
+                        <img id="previewThumb" src="" alt="サムネイル">
+                        <div class="preview-title" id="previewInfo">プレビュー</div>
+                    </div>
+                </div>
+                <div class="form-group"><label>タイトル</label><input type="text" id="videoTitle" placeholder="例: 運動会2026"></div>
+                <div class="form-group"><label>説明（任意）</label><input type="text" id="videoDesc" placeholder="例: 南小学校で開催された運動会"></div>
+                <div class="form-group"><label>年度</label><select id="videoYear"></select></div>
+                <div class="form-group"><label>月</label><select id="videoMonth"><option value="1月">1月</option><option value="2月">2月</option><option value="3月">3月</option><option value="4月">4月</option><option value="5月">5月</option><option value="6月">6月</option><option value="7月">7月</option><option value="8月">8月</option><option value="9月">9月</option><option value="10月">10月</option><option value="11月">11月</option><option value="12月">12月</option></select></div>
+                <div class="form-group"><label>日付（任意）</label><input type="text" id="videoDate" placeholder="例: 2026年3月15日"></div>
+                <button class="btn btn-primary" id="addBtn" onclick="addVideo()" disabled><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>追加する</button>
+                <button class="btn btn-secondary" onclick="toggleEditMode()"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>動画を削除する</button>
+            </div>
+        </div>
+    </div>
+    <div class="edit-mode-banner" id="editBanner">🗑️ 削除モード<button onclick="toggleEditMode()">完了</button></div>
+    <div class="toast" id="toast"></div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+// Firebase設定
+const firebaseConfig = {
+    apiKey: "AIzaSyDAa9wZK3eJYzqY3UhLrb3h1VSM-ygkkik",
+    authDomain: "home-video-d81f0.firebaseapp.com",
+    projectId: "home-video-d81f0",
+    storageBucket: "home-video-d81f0.firebasestorage.app",
+    messagingSenderId: "933435624953",
+    appId: "1:933435624953:web:7161ab04f5d50e56a80128"
+};
+
+// Firebase初期化
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// 初期データ
+const defaultData = {
+    "2026":[{month:"2月",emoji:"❄️",videos:[{title:"塩南地区選抜 BREXエキシビションマッチ",description:"塩南地区選抜チームによるBREXとのエキシビションマッチ",date:"2026年2月1日",playlistId:"PLpQLKhKt0bVLSCni2y171DU9HDPh3ADrO",videoId:""}]}],
+    "2025":[{month:"12月",emoji:"🎄",videos:[{title:"さくら市小学校駅伝大会",description:"さくら市で開催された小学校駅伝大会の様子",date:"2025年12月3日",playlistId:"PL-mrW12AZk3I3OHH_7Gp6siV9b3eTriWF",videoId:""}]},{month:"11月",emoji:"🍂",videos:[{title:"南小学校持久走大会",description:"南小学校で開催された持久走大会の様子",date:"2025年11月21日, 25日",playlistId:"PL-mrW12AZk3JXMADjzs5luzY8bmwAKxqJ",videoId:""}]},{month:"10月",emoji:"🎃",videos:[{title:"南小学校運動会",description:"南小学校で開催された運動会の様子",date:"2025年10月25日",playlistId:"PL-mrW12AZk3LlQCZuHhqlQBJWYGEr51Fv",videoId:""},{title:"USJ",description:"ユニバーサル・スタジオ・ジャパンへの家族旅行",date:"2025年10月13日",playlistId:"PL-mrW12AZk3J_v1KfPaYu2ADQkuXdUkpt",videoId:""}]},{month:"8月",emoji:"🌻",videos:[{title:"木の俣渓谷",description:"木の俣渓谷での夏のアウトドア体験",date:"2025年8月3日",playlistId:"PL-mrW12AZk3LtyZqni46IZ_1o9fGcC3tO",videoId:""}]},{month:"7月",emoji:"🏖️",videos:[{title:"那須矢の目ダムSUP",description:"那須矢の目ダムでのSUP体験",date:"2025年7月20日",playlistId:"PL-mrW12AZk3KiWk8XEFzEzp60Y0it8WZc",videoId:""}]},{month:"6月",emoji:"🌸",videos:[{title:"カップヌードルミュージアム、ランドマークタワー",description:"横浜への家族旅行",date:"2025年6月1日",playlistId:"PL-mrW12AZk3Li7lxt7nll_xZMYWxayzRX",videoId:""}]}],
+    "2024":[],
+    "2023":[],
+    "2022":[]
+};
+
+const monthEmojis = {"1月":"🎍","2月":"❄️","3月":"🌸","4月":"🌷","5月":"🎏","6月":"☔","7月":"🏖️","8月":"🌻","9月":"🍁","10月":"🎃","11月":"🍂","12月":"🎄"};
+const years = ["2026","2025","2024","2023","2022"];
+
+let videoData = {};
+let editMode = false;
+let parsedUrl = null;
+let unsubscribe = null;
+
+// Toast表示
+function showToast(message, isError = false) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast show' + (isError ? ' error' : '');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// 同期インジケーター更新
+function setSyncStatus(status) {
+    const indicator = document.getElementById('syncIndicator');
+    indicator.className = 'sync-indicator' + (status === 'syncing' ? ' syncing' : status === 'error' ? ' error' : '');
+}
+
+// Firestoreからデータ読み込み（リアルタイムリスナー）
+function startRealtimeSync() {
+    unsubscribe = db.collection('settings').doc('videoData')
+        .onSnapshot((doc) => {
+            if (doc.exists) {
+                videoData = doc.data().data || {};
+                // 年度がない場合は空配列で初期化
+                years.forEach(y => {
+                    if (!videoData[y]) videoData[y] = [];
+                });
+            } else {
+                // 初回：デフォルトデータで初期化
+                videoData = JSON.parse(JSON.stringify(defaultData));
+                saveToFirestore();
+            }
+            renderContent();
+            document.getElementById('loadingOverlay').style.display = 'none';
+            setSyncStatus('synced');
+        }, (error) => {
+            console.error('Firestore error:', error);
+            setSyncStatus('error');
+            showToast('同期エラー', true);
+            document.getElementById('loadingOverlay').style.display = 'none';
+        });
+}
+
+// Firestoreに保存
+async function saveToFirestore() {
+    setSyncStatus('syncing');
+    try {
+        await db.collection('settings').doc('videoData').set({
+            data: videoData,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        setSyncStatus('synced');
+    } catch (error) {
+        console.error('Save error:', error);
+        setSyncStatus('error');
+        showToast('保存エラー', true);
+    }
+}
+
+// YouTube URL解析
+function parseYouTubeUrl(url) {
+    const r = {playlistId: null, videoId: null};
+    try {
+        const u = new URL(url);
+        r.playlistId = u.searchParams.get('list');
+        r.videoId = u.searchParams.get('v');
+        if (u.hostname === 'youtu.be') r.videoId = u.pathname.slice(1);
+    } catch(e) {}
+    return r;
+}
+
+// ナビゲーション描画
+function renderNav() {
+    const nav = document.getElementById('navDrawer');
+    let h = '<div class="nav-drawer-item active" data-page="home" onclick="showPage(\'home\')">🏠 ホーム</div>';
+    years.forEach(y => {
+        h += `<div class="nav-drawer-item" data-page="${y}" onclick="showPage('${y}')">📅 ${y}年</div>`;
+    });
+    nav.innerHTML = h;
+}
+
+// コンテンツ描画
+function renderContent() {
+    const main = document.getElementById('mainContent');
+    let h = `<div class="page active" id="page-home">
+        <section class="hero">
+            <div class="hero-badge"><span></span>家族の思い出</div>
+            <h1 class="hero-title">野茂家の<br><span class="gradient">Youtube再生リスト集</span></h1>
+            <p class="hero-subtitle">大切な家族の思い出を年別に整理。<br>いつでも振り返れる動画コレクション。</p>
+        </section>
+        <section>
+            <div class="section-title"><h2>📅 年別アーカイブ</h2><div class="section-line"></div></div>
+            <div class="cards-grid">`;
+
+    years.forEach(y => {
+        const d = videoData[y] || [];
+        const c = d.reduce((s,m) => s + m.videos.length, 0);
+        const desc = c > 0 ? `${c}件の再生リスト` : '準備中';
+        h += `<div class="year-card year-${y}" onclick="showPage('${y}')">
+            <div class="card-visual"><span class="card-year">${y}</span></div>
+            <div class="card-content"><div class="card-title">${y}年の記録</div><div class="card-description">${desc}</div></div>
+            <div class="card-arrow"><svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+        </div>`;
+    });
+    h += `</div></section></div>`;
+
+    years.forEach(y => {
+        const d = videoData[y] || [];
+        h += `<div class="page year-${y}" id="page-${y}">
+            <div class="year-page-header">
+                <button class="back-button" onclick="showPage('home')"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>戻る</button>
+                <div class="year-page-title"><div class="year-badge">${y}</div><div class="year-page-info"><h1>${y}年の思い出</h1><p>動画コレクション</p></div></div>
+            </div>`;
+
+        if (d.length === 0) {
+            h += `<div class="empty-page"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg></div><h2>準備中</h2><p>右上の＋ボタンから動画を追加できます</p></div>`;
+        } else {
+            d.forEach(md => {
+                h += `<div class="video-section"><div class="month-title"><h3>${md.emoji} ${md.month}</h3><span class="month-count">${md.videos.length}件</span></div>`;
+                md.videos.forEach((v, i) => {
+                    const pUrl = `https://www.youtube.com/playlist?list=${v.playlistId}`;
+                    const tUrl = v.videoId ? `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg` : `https://i.ytimg.com/vi/${v.playlistId}/hqdefault.jpg`;
+                    h += `<a href="${pUrl}" target="_blank" class="video-card">
+                        <button class="delete-btn" onclick="deleteVideo(event,'${y}','${md.month}',${i})"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+                        <div class="video-thumbnail">
+                            <img src="${tUrl}" alt="${v.title}" onerror="this.style.display='none'">
+                            <div class="video-thumbnail-overlay"><div class="play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
+                            <div class="playlist-tag"><svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>再生リスト</div>
+                        </div>
+                        <div class="video-info"><h3>${v.title}</h3><p>${v.description||''}</p><div class="video-meta"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1z"/></svg>${v.date||''}</div></div>
+                    </a>`;
+                });
+                h += `</div>`;
+            });
+        }
+        h += `</div>`;
+    });
+
+    main.innerHTML = h;
+    if (editMode) document.querySelectorAll('.page').forEach(p => p.classList.add('edit-mode'));
+}
+
+// ページ切替
+function showPage(id) {
+    document.getElementById('navDrawer').classList.remove('open');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(`page-${id}`).classList.add('active');
+    document.querySelectorAll('.nav-drawer-item').forEach(i => {
+        i.classList.remove('active');
+        if (i.dataset.page === id) i.classList.add('active');
+    });
+    window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function toggleMenu() {
+    document.getElementById('navDrawer').classList.toggle('open');
+}
+
+// 追加モーダル
+function openAddModal() {
+    document.getElementById('addModal').classList.add('open');
+    document.getElementById('youtubeUrl').value = '';
+    document.getElementById('videoTitle').value = '';
+    document.getElementById('videoDesc').value = '';
+    document.getElementById('videoDate').value = '';
+    document.getElementById('previewArea').style.display = 'none';
+    document.getElementById('addBtn').disabled = true;
+    parsedUrl = null;
+    const ys = document.getElementById('videoYear');
+    ys.innerHTML = years.map(y => `<option value="${y}">${y}年</option>`).join('');
+    document.getElementById('videoMonth').value = `${new Date().getMonth()+1}月`;
+}
+
+function closeAddModal() {
+    document.getElementById('addModal').classList.remove('open');
+}
+
+document.getElementById('youtubeUrl').addEventListener('input', function() {
+    const url = this.value.trim();
+    parsedUrl = parseYouTubeUrl(url);
+    if (parsedUrl.playlistId || parsedUrl.videoId) {
+        const tUrl = parsedUrl.videoId ? `https://i.ytimg.com/vi/${parsedUrl.videoId}/hqdefault.jpg` : null;
+        if (tUrl) {
+            document.getElementById('previewThumb').src = tUrl;
+            document.getElementById('previewArea').style.display = 'block';
+            document.getElementById('previewInfo').textContent = `再生リストID: ${parsedUrl.playlistId || 'なし'}`;
+        } else {
+            document.getElementById('previewArea').style.display = 'none';
+        }
+        updateAddButton();
+    } else {
+        document.getElementById('previewArea').style.display = 'none';
+        document.getElementById('addBtn').disabled = true;
+    }
+});
+
+document.getElementById('videoTitle').addEventListener('input', updateAddButton);
+
+function updateAddButton() {
+    const t = document.getElementById('videoTitle').value.trim();
+    const hasUrl = parsedUrl && parsedUrl.playlistId;
+    document.getElementById('addBtn').disabled = !(t && hasUrl);
+}
+
+async function addVideo() {
+    if (!parsedUrl || !parsedUrl.playlistId) return;
+    
+    const title = document.getElementById('videoTitle').value.trim();
+    const desc = document.getElementById('videoDesc').value.trim();
+    const year = document.getElementById('videoYear').value;
+    const month = document.getElementById('videoMonth').value;
+    const date = document.getElementById('videoDate').value.trim();
+    
+    const newV = {
+        title,
+        description: desc,
+        date,
+        playlistId: parsedUrl.playlistId,
+        videoId: parsedUrl.videoId || ''
+    };
+    
+    if (!videoData[year]) videoData[year] = [];
+    
+    let md = videoData[year].find(m => m.month === month);
+    if (!md) {
+        md = {month, emoji: monthEmojis[month] || "📅", videos: []};
+        videoData[year].push(md);
+        videoData[year].sort((a, b) => parseInt(b.month) - parseInt(a.month));
+    }
+    md.videos.push(newV);
+    
+    await saveToFirestore();
+    showToast('動画を追加しました');
+    closeAddModal();
+    showPage(year);
+}
+
+function toggleEditMode() {
+    editMode = !editMode;
+    document.getElementById('editBanner').classList.toggle('show', editMode);
+    document.querySelectorAll('.page').forEach(p => p.classList.toggle('edit-mode', editMode));
+    closeAddModal();
+}
+
+async function deleteVideo(e, y, m, i) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('この動画を削除しますか？')) return;
+    
+    const md = videoData[y].find(x => x.month === m);
+    if (md) {
+        md.videos.splice(i, 1);
+        if (md.videos.length === 0) {
+            const mi = videoData[y].indexOf(md);
+            videoData[y].splice(mi, 1);
+        }
+        await saveToFirestore();
+        showToast('動画を削除しました');
+    }
+}
+
+// 初期化
+renderNav();
+startRealtimeSync();
+</script>
+</body>
+</html>
