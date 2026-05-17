@@ -1,1 +1,797 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>💰 Welfit管理アプリ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #222;
+  }
+  .container {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { color: #333; margin-bottom: 8px; font-size: 26px; text-align: center; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 18px; font-size: 14px; }
 
+  .top-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: 12px; margin-bottom: 20px;
+  }
+  .top-bar label { font-size: 13px; font-weight: 600; color: #555; }
+  .top-bar select {
+    padding: 8px 12px; border-radius: 8px; border: 2px solid #e0e0e0;
+    font-size: 14px; background: white;
+  }
+  .user-info { font-size: 13px; color: #555; }
+
+  .btn {
+    padding: 10px 18px; border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
+  .btn-secondary { background: #e0e4ea; color: #333; }
+  .btn-secondary:hover { background: #cfd5dd; }
+  .btn-danger { background: #e74c3c; color: #fff; }
+  .btn-danger:hover { background: #c0392b; }
+
+  .tabs { display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 2px solid #e0e0e0; }
+  .tab {
+    padding: 12px 24px; background: transparent; border: none;
+    border-bottom: 3px solid transparent; color: #666;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    position: relative; bottom: -2px; transition: all .3s;
+  }
+  .tab:hover { color: #667eea; }
+  .tab.active { color: #667eea; border-bottom-color: #667eea; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn .3s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .signin-notice {
+    background: #f8f9fa; padding: 30px; border-radius: 12px;
+    text-align: center; color: #555;
+  }
+
+  .ledger-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid #e0e0e0; }
+  .ledger { width: 100%; border-collapse: collapse; font-size: 14px; background: #fff; }
+  .ledger th, .ledger td { border-bottom: 1px solid #e0e0e0; padding: 10px 12px; text-align: left; vertical-align: middle; }
+  .ledger thead th { background: #667eea; color: #fff; font-weight: 600; white-space: nowrap; }
+  .ledger td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .row-budget td { background: #d4edda; font-weight: 700; }
+  .row-remain td { background: #fff3cd; font-weight: 700; }
+  .ledger tbody tr:hover td:not(.no-hover) { background: #f8f9fa; }
+  .ledger tbody tr.row-budget:hover td,
+  .ledger tbody tr.row-remain:hover td { background: inherit; }
+
+  .applied-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .s-未 { background: #f0f0f0; color: #666; }
+  .s-申請済 { background: #d2e7ff; color: #1652a0; }
+  .s-承認 { background: #cfe9d0; color: #1d6f1f; }
+  .s-却下 { background: #ffd5d5; color: #a00; }
+
+  .action-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+  .icon-btn {
+    background: none; border: 1px solid #e0e0e0; border-radius: 6px;
+    padding: 4px 8px; cursor: pointer; font-size: 12px;
+  }
+  .icon-btn:hover { background: #f0f0f0; }
+  .icon-btn.danger:hover { background: #ffe6e6; border-color: #e74c3c; color: #c0392b; }
+
+  .add-btn-wrap { margin-top: 16px; text-align: center; }
+
+  .dup-section {
+    margin-top: 32px; background: #f8f9fa; padding: 20px;
+    border-radius: 12px; border: 1px solid #e0e0e0;
+  }
+  .dup-section h3 { margin-bottom: 12px; color: #333; }
+  .dup-section input[type="search"] {
+    width: 100%; padding: 10px 12px; border: 2px solid #e0e0e0;
+    border-radius: 8px; font-size: 14px; margin-bottom: 12px;
+  }
+  .dup-section input[type="search"]:focus { outline: none; border-color: #667eea; }
+  .book-list { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 8px; overflow: hidden; }
+  .book-list th, .book-list td { border-bottom: 1px solid #eee; padding: 8px 10px; text-align: left; }
+  .book-list th { background: #667eea; color: #fff; }
+  .book-list tr.dup-hit td { background: #ffe6e6; }
+
+  .dup-warning {
+    background: #ffe6e6; color: #a30000;
+    padding: 10px 14px; border-radius: 8px;
+    margin: 10px 0; font-size: 13px;
+  }
+
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
+  .modal.show { display: flex; align-items: center; justify-content: center; }
+  .modal-content {
+    background: white; border-radius: 15px; padding: 28px;
+    max-width: 540px; width: 92%; max-height: 92vh; overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: slideUp .25s;
+  }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .modal-header h2 { font-size: 20px; color: #333; }
+  .close-btn { background: none; border: none; font-size: 26px; color: #999; cursor: pointer; }
+  .close-btn:hover { color: #333; }
+  .modal-content label { display: block; margin-bottom: 12px; font-size: 13px; color: #555; font-weight: 600; }
+  .modal-content input, .modal-content select, .modal-content textarea {
+    width: 100%; padding: 9px 12px; border: 2px solid #e0e0e0;
+    border-radius: 8px; font-size: 14px; margin-top: 4px;
+    font-family: inherit;
+  }
+  .modal-content input:focus, .modal-content select:focus, .modal-content textarea:focus {
+    outline: none; border-color: #667eea;
+  }
+  .modal-content input[type="file"] {
+    padding: 10px; border: 2px dashed #667eea;
+  }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+  .image-preview-box {
+    max-width: 100%; max-height: 240px; overflow: auto;
+    border: 1px solid #ddd; border-radius: 8px; padding: 10px;
+    background: #f8f9fa; margin-top: 10px;
+  }
+  .image-preview-box img { max-width: 100%; height: auto; display: block; }
+
+  .image-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 1px solid #ddd; }
+
+  .config-warning {
+    background: #fff3cd; color: #664d03;
+    padding: 12px; text-align: center;
+    border: 1px solid #ffe69c; border-radius: 8px;
+    margin-bottom: 16px;
+  }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 720px) {
+    .container { padding: 24px 16px; }
+    h1 { font-size: 20px; }
+    .ledger { font-size: 12px; }
+    .ledger th, .ledger td { padding: 6px 8px; }
+    .tab { padding: 10px 14px; font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>💰 Welfit管理アプリ</h1>
+  <p class="subtitle">Welfit経費精算の申請内容を年度別に管理</p>
+
+  <div id="configWarning" class="config-warning hidden"></div>
+
+  <div class="top-bar">
+    <label>年度:
+      <select id="yearSelect"></select>
+    </label>
+    <span class="user-info" id="userInfo">未ログイン</span>
+    <button id="loginBtn" class="btn btn-primary">Googleでログイン</button>
+    <button id="logoutBtn" class="btn btn-secondary hidden">ログアウト</button>
+  </div>
+
+  <div id="signinNotice" class="signin-notice">
+    <p>Googleアカウントでログインすると、申請データを年度別に管理できます。</p>
+  </div>
+
+  <div id="appBody" class="hidden">
+    <div class="tabs">
+      <button class="tab active" data-tab="welfit">💼 Wel-fit</button>
+      <button class="tab" data-tab="expert">📚 エキスパート基金</button>
+    </div>
+
+    <!-- Wel-fit タブ -->
+    <section id="tab-welfit" class="tab-content active">
+      <div class="ledger-wrap">
+        <table class="ledger">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Wel-fit</th>
+              <th>申請済か？</th>
+              <th>税抜き</th>
+              <th>日付</th>
+              <th>メモ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="row-budget">
+              <td>当年度ポイント</td>
+              <td class="num" id="welfitBudget">¥50,000</td>
+              <td>—</td><td>—</td><td>—</td><td>—</td><td></td>
+            </tr>
+          </tbody>
+          <tbody id="welfitRows"></tbody>
+          <tbody>
+            <tr class="row-remain">
+              <td>残高ポイント</td>
+              <td class="num" id="welfitRemain">¥50,000</td>
+              <td>—</td><td>—</td><td>—</td><td>—</td><td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="add-btn-wrap">
+        <button id="addWelfit" class="btn btn-primary">+ 行を追加</button>
+      </div>
+    </section>
+
+    <!-- エキスパート基金 タブ -->
+    <section id="tab-expert" class="tab-content">
+      <div class="ledger-wrap">
+        <table class="ledger">
+          <thead>
+            <tr>
+              <th></th>
+              <th>エキスパート基金</th>
+              <th>申請済か？</th>
+              <th>税抜き</th>
+              <th>書籍名</th>
+              <th>レシート</th>
+              <th>日付</th>
+              <th>メモ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="row-budget">
+              <td>当年度ポイント</td>
+              <td class="num" id="expertBudget">¥132,000</td>
+              <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td></td>
+            </tr>
+          </tbody>
+          <tbody id="expertRows"></tbody>
+          <tbody>
+            <tr class="row-remain">
+              <td>残高ポイント</td>
+              <td class="num" id="expertRemain">¥132,000</td>
+              <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="add-btn-wrap">
+        <button id="addExpert" class="btn btn-primary">+ 行を追加</button>
+      </div>
+
+      <div class="dup-section">
+        <h3>📖 書籍重複チェック（全年度横断）</h3>
+        <input id="bookSearch" type="search" placeholder="書籍名で検索…" />
+        <div style="overflow-x:auto;">
+          <table class="book-list">
+            <thead><tr><th>書籍名</th><th>年度</th><th>金額</th><th>レシート</th></tr></thead>
+            <tbody id="bookListBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 編集モーダル -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modalTitle">行を追加</h2>
+      <button type="button" class="close-btn" onclick="closeModal()">&times;</button>
+    </div>
+    <form id="modalForm">
+      <input type="hidden" id="f_id" />
+      <input type="hidden" id="f_kind" />
+      <input type="hidden" id="f_existingReceiptData" />
+
+      <label>日付 <span style="color:#e74c3c">*</span>
+        <input type="date" id="f_date" required />
+      </label>
+      <label>金額(税込) <span style="color:#e74c3c">*</span>
+        <input type="number" id="f_amount" min="0" step="1" required />
+      </label>
+      <label>税抜き
+        <input type="number" id="f_taxExcluded" min="0" step="1" />
+      </label>
+      <label>申請済か？
+        <select id="f_applied">
+          <option value="未">未申請</option>
+          <option value="申請済">申請済</option>
+          <option value="承認">承認</option>
+          <option value="却下">却下</option>
+        </select>
+      </label>
+
+      <div class="expert-only">
+        <label>書籍名
+          <input type="text" id="f_bookTitle" placeholder="例：自動車工学シリーズ 4 電動化技術" />
+        </label>
+        <div id="f_dupWarn" class="dup-warning hidden"></div>
+
+        <label>レシート画像 (任意)
+          <input type="file" id="f_receipt" accept="image/*" />
+        </label>
+        <div id="f_receiptPreview" class="image-preview-box hidden">
+          <img id="f_receiptImg" alt="プレビュー" />
+          <div style="margin-top:8px; text-align:right;">
+            <button type="button" class="btn btn-danger" id="f_removeReceipt" style="padding:6px 12px; font-size:12px;">画像を削除</button>
+          </div>
+        </div>
+      </div>
+
+      <label>メモ
+        <textarea id="f_note" rows="2"></textarea>
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+        <button type="submit" class="btn btn-primary" id="saveBtn">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 画像表示モーダル -->
+<div id="imageModal" class="modal">
+  <div class="modal-content" style="max-width:800px;">
+    <div class="modal-header">
+      <h2>📷 レシート画像</h2>
+      <button type="button" class="close-btn" onclick="closeImageModal()">&times;</button>
+    </div>
+    <div style="max-height:70vh; overflow:auto; background:#f8f9fa; padding:10px; border-radius:8px;">
+      <img id="imageModalImg" style="max-width:100%; height:auto; display:block; margin:0 auto;" />
+    </div>
+    <div class="modal-actions">
+      <a id="imageDownloadLink" class="btn btn-primary" download style="text-decoration:none;">ダウンロード</a>
+      <button type="button" class="btn btn-secondary" onclick="closeImageModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, collection, doc, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ===== Firebase 設定 =====
+const firebaseConfig = {
+  apiKey: "AIzaSyCI2mhBCXeViCfsy-B7vo3VyEONqk1MWyg",
+  authDomain: "wel-fit-management.firebaseapp.com",
+  projectId: "wel-fit-management",
+  storageBucket: "wel-fit-management.firebasestorage.app",
+  messagingSenderId: "75123432379",
+  appId: "1:75123432379:web:f606b61809ad728bfac29e"
+};
+const BUDGETS = { welfit: 50000, expert: 132000 };
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+// 画像圧縮設定（Firestoreドキュメント上限 1MiB ≒ Base64で~750KB に収めるため）
+const IMAGE_MAX_EDGE = 1200;       // 長辺の最大px
+const IMAGE_JPEG_QUALITY = 0.7;    // JPEG品質
+const IMAGE_MAX_BYTES = 700 * 1024; // 圧縮後のサイズ上限(目安)
+
+// ===== 状態 =====
+const state = {
+  user: null,
+  year: String(new Date().getFullYear()),
+  welfit: [],
+  expert: [],
+  expertAll: [],
+  pendingReceiptFile: null
+};
+
+const $ = id => document.getElementById(id);
+const fmtYen = n => "¥" + Number(n || 0).toLocaleString("ja-JP");
+const escapeHtml = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const normalizeTitle = s => String(s || "").trim().toLowerCase().replace(/\s+/g, "").replace(/[　]/g, "").normalize("NFKC");
+
+// ===== 年度セレクタ =====
+function buildYearSelector() {
+  const sel = $("yearSelect");
+  const now = new Date().getFullYear();
+  sel.innerHTML = "";
+  for (let y = now + 1; y >= now - 5; y--) {
+    const opt = document.createElement("option");
+    opt.value = String(y);
+    opt.textContent = y + "年度";
+    if (String(y) === state.year) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  sel.onchange = async () => {
+    state.year = sel.value;
+    await loadAll();
+  };
+}
+
+// ===== タブ =====
+function setupTabs() {
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(s => s.classList.remove("active"));
+      btn.classList.add("active");
+      $("tab-" + btn.dataset.tab).classList.add("active");
+    };
+  });
+}
+
+// ===== Firestore パス =====
+const yearDocRef = (uid, year) => doc(db, "users", uid, "years", year);
+const appsCol = (uid, year, kind) =>
+  collection(db, "users", uid, "years", year, kind === "welfit" ? "welfit_apps" : "expert_apps");
+
+// ===== 読み込み =====
+async function loadAll() {
+  if (!state.user) return;
+  const uid = state.user.uid;
+  try {
+    const [welSnap, expSnap] = await Promise.all([
+      getDocs(appsCol(uid, state.year, "welfit")),
+      getDocs(appsCol(uid, state.year, "expert"))
+    ]);
+    state.welfit = welSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    state.expert = expSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // 全年度 expert 取得（重複チェック用）
+    state.expertAll = [];
+    const yearsSnap = await getDocs(collection(db, "users", uid, "years"));
+    await Promise.all(yearsSnap.docs.map(async yd => {
+      const sub = await getDocs(appsCol(uid, yd.id, "expert"));
+      sub.docs.forEach(d => state.expertAll.push({ id: d.id, year: yd.id, ...d.data() }));
+    }));
+  } catch (e) {
+    console.error("読み込み失敗:", e);
+    alert("データ読み込みに失敗: " + e.message);
+  }
+  renderWelfit();
+  renderExpert();
+  renderBookList();
+}
+
+// ===== レンダリング: Wel-fit =====
+function renderWelfit() {
+  const tbody = $("welfitRows");
+  tbody.innerHTML = "";
+  let used = 0;
+  for (const r of [...state.welfit].sort((a,b) => (a.date||"").localeCompare(b.date||""))) {
+    used += Number(r.amount || 0);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>使用ポイント</td>
+      <td class="num">${fmtYen(r.amount)}</td>
+      <td><span class="applied-badge s-${r.applied || "未"}">${r.applied || "未"}</span></td>
+      <td class="num">${r.taxExcluded ? fmtYen(r.taxExcluded) : "—"}</td>
+      <td>${escapeHtml(r.date || "")}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td>
+        <div class="action-btns">
+          <button class="icon-btn" data-act="edit" data-kind="welfit" data-id="${r.id}">✏️</button>
+          <button class="icon-btn danger" data-act="del" data-kind="welfit" data-id="${r.id}">🗑</button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+  $("welfitBudget").textContent = fmtYen(BUDGETS.welfit);
+  $("welfitRemain").textContent = fmtYen(BUDGETS.welfit - used);
+}
+
+// ===== レンダリング: エキスパート基金 =====
+function renderExpert() {
+  const tbody = $("expertRows");
+  tbody.innerHTML = "";
+  let used = 0;
+  for (const r of [...state.expert].sort((a,b) => (a.date||"").localeCompare(b.date||""))) {
+    used += Number(r.amount || 0);
+    const hasReceipt = !!r.receiptData;
+    const dupHit = state.expertAll.filter(e =>
+      e.bookTitle && r.bookTitle &&
+      normalizeTitle(e.bookTitle) === normalizeTitle(r.bookTitle) &&
+      !(e.year === state.year && e.id === r.id)
+    );
+    const dupMark = dupHit.length ? ` <span title="他に同名あり" style="color:#c00">⚠</span>` : "";
+    const receiptCell = hasReceipt
+      ? `<img class="image-thumb" src="${escapeHtml(r.receiptData)}" alt="receipt" data-act="view" data-id="${r.id}" data-kind="expert" />`
+      : `<span style="color:#999;font-size:12px;">なし</span>`;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>使用ポイント</td>
+      <td class="num">${fmtYen(r.amount)}</td>
+      <td><span class="applied-badge s-${r.applied || "未"}">${r.applied || "未"}</span></td>
+      <td class="num">${r.taxExcluded ? fmtYen(r.taxExcluded) : "—"}</td>
+      <td>${escapeHtml(r.bookTitle || "")}${dupMark}</td>
+      <td>${receiptCell}</td>
+      <td>${escapeHtml(r.date || "")}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td>
+        <div class="action-btns">
+          <button class="icon-btn" data-act="edit" data-kind="expert" data-id="${r.id}">✏️</button>
+          <button class="icon-btn danger" data-act="del" data-kind="expert" data-id="${r.id}">🗑</button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+  $("expertBudget").textContent = fmtYen(BUDGETS.expert);
+  $("expertRemain").textContent = fmtYen(BUDGETS.expert - used);
+}
+
+// ===== 書籍重複一覧 =====
+function renderBookList(filter = "") {
+  const body = $("bookListBody");
+  body.innerHTML = "";
+  const norm = normalizeTitle(filter);
+  const counts = new Map();
+  state.expertAll.forEach(e => {
+    if (!e.bookTitle) return;
+    const k = normalizeTitle(e.bookTitle);
+    counts.set(k, (counts.get(k) || 0) + 1);
+  });
+  const list = state.expertAll
+    .filter(e => !filter || normalizeTitle(e.bookTitle || "").includes(norm))
+    .sort((a,b) => (a.bookTitle||"").localeCompare(b.bookTitle||"", "ja"));
+  for (const e of list) {
+    const isDup = counts.get(normalizeTitle(e.bookTitle || "")) > 1;
+    const tr = document.createElement("tr");
+    if (isDup) tr.classList.add("dup-hit");
+    const receipt = e.receiptData
+      ? `<img class="image-thumb" src="${escapeHtml(e.receiptData)}" data-act="view" data-id="${e.id}" data-kind="expert-all" data-year="${escapeHtml(e.year)}" />`
+      : "—";
+    tr.innerHTML = `
+      <td>${escapeHtml(e.bookTitle || "")}${isDup ? " ⚠重複" : ""}</td>
+      <td>${escapeHtml(e.year)}</td>
+      <td>${fmtYen(e.amount)}</td>
+      <td>${receipt}</td>`;
+    body.appendChild(tr);
+  }
+}
+
+// ===== モーダル =====
+window.closeModal = () => $("modal").classList.remove("show");
+window.closeImageModal = () => $("imageModal").classList.remove("show");
+
+function openModal(kind, row) {
+  state.pendingReceiptFile = null;
+  $("f_kind").value = kind;
+  $("f_id").value = row ? row.id : "";
+  $("modalTitle").textContent = (row ? "編集" : "追加") + (kind === "welfit" ? " — Wel-fit" : " — エキスパート基金");
+  $("f_date").value = row?.date || new Date().toISOString().slice(0,10);
+  $("f_amount").value = row?.amount ?? "";
+  $("f_taxExcluded").value = row?.taxExcluded ?? "";
+  $("f_applied").value = row?.applied || "未";
+  $("f_bookTitle").value = row?.bookTitle || "";
+  $("f_note").value = row?.note || "";
+  $("f_receipt").value = "";
+  $("f_existingReceiptData").value = row?.receiptData || "";
+  document.querySelectorAll(".expert-only").forEach(el => {
+    el.style.display = kind === "expert" ? "" : "none";
+  });
+  if (row?.receiptData) {
+    $("f_receiptImg").src = row.receiptData;
+    $("f_receiptPreview").classList.remove("hidden");
+  } else {
+    $("f_receiptPreview").classList.add("hidden");
+  }
+  checkModalDup();
+  $("modal").classList.add("show");
+}
+
+function checkModalDup() {
+  const kind = $("f_kind").value;
+  const warn = $("f_dupWarn");
+  if (kind !== "expert") { warn.classList.add("hidden"); return; }
+  const title = $("f_bookTitle").value;
+  const editingId = $("f_id").value;
+  if (!title.trim()) { warn.classList.add("hidden"); return; }
+  const hits = state.expertAll.filter(e =>
+    e.bookTitle &&
+    normalizeTitle(e.bookTitle) === normalizeTitle(title) &&
+    e.id !== editingId
+  );
+  if (hits.length === 0) { warn.classList.add("hidden"); return; }
+  warn.innerHTML = `⚠ 重複の可能性: 同名書籍が${hits.length}件あります（${hits.map(h => h.year + "年度").join(", ")}）`;
+  warn.classList.remove("hidden");
+}
+
+// ファイル → 圧縮 → Base64 DataURL に変換
+async function compressImageToDataUrl(file) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("ファイル読み込み失敗"));
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => reject(new Error("画像読み込み失敗"));
+    im.src = dataUrl;
+  });
+  let { width, height } = img;
+  if (Math.max(width, height) > IMAGE_MAX_EDGE) {
+    const scale = IMAGE_MAX_EDGE / Math.max(width, height);
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, width, height);
+  let out = canvas.toDataURL("image/jpeg", IMAGE_JPEG_QUALITY);
+  // 大きすぎる場合は段階的に品質を落として再圧縮
+  let q = IMAGE_JPEG_QUALITY;
+  while (out.length > IMAGE_MAX_BYTES * 1.37 && q > 0.3) {
+    q -= 0.1;
+    out = canvas.toDataURL("image/jpeg", q);
+  }
+  return out;
+}
+
+async function saveModal(e) {
+  e.preventDefault();
+  if (!state.user) return;
+  const saveBtn = $("saveBtn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "保存中…";
+  try {
+    const uid = state.user.uid;
+    const kind = $("f_kind").value;
+    const id = $("f_id").value;
+
+    const data = {
+      date: $("f_date").value,
+      amount: Number($("f_amount").value || 0),
+      taxExcluded: $("f_taxExcluded").value ? Number($("f_taxExcluded").value) : null,
+      applied: $("f_applied").value,
+      note: $("f_note").value || "",
+      updatedAt: serverTimestamp()
+    };
+    if (kind === "expert") {
+      data.bookTitle = $("f_bookTitle").value || "";
+      // 新規ファイルが選択されていれば圧縮、なければ既存を維持（空文字なら削除扱い）
+      if (state.pendingReceiptFile) {
+        saveBtn.textContent = "画像を圧縮中…";
+        data.receiptData = await compressImageToDataUrl(state.pendingReceiptFile);
+      } else {
+        data.receiptData = $("f_existingReceiptData").value || "";
+      }
+    }
+
+    saveBtn.textContent = "保存中…";
+    await setDoc(yearDocRef(uid, state.year), { year: state.year }, { merge: true });
+
+    if (id) {
+      await setDoc(doc(appsCol(uid, state.year, kind), id), data, { merge: true });
+    } else {
+      data.createdAt = serverTimestamp();
+      await addDoc(appsCol(uid, state.year, kind), data);
+    }
+
+    closeModal();
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    alert("保存失敗: " + err.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "保存";
+  }
+}
+
+async function deleteRow(kind, id) {
+  if (!confirm("削除しますか？")) return;
+  const uid = state.user.uid;
+  await deleteDoc(doc(appsCol(uid, state.year, kind), id));
+  await loadAll();
+}
+
+function openImageView(url) {
+  $("imageModalImg").src = url;
+  $("imageDownloadLink").href = url;
+  $("imageModal").classList.add("show");
+}
+
+// ===== イベント =====
+function bindEvents() {
+  $("loginBtn").onclick = () => signInWithPopup(auth, provider).catch(err => alert("ログイン失敗: " + err.message));
+  $("logoutBtn").onclick = () => signOut(auth);
+  $("addWelfit").onclick = () => openModal("welfit", null);
+  $("addExpert").onclick = () => openModal("expert", null);
+  $("modalForm").onsubmit = saveModal;
+  $("f_bookTitle").addEventListener("input", checkModalDup);
+  $("bookSearch").addEventListener("input", e => renderBookList(e.target.value));
+
+  $("f_receipt").addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert("画像サイズが10MBを超えています");
+      e.target.value = "";
+      return;
+    }
+    state.pendingReceiptFile = file;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      $("f_receiptImg").src = ev.target.result;
+      $("f_receiptPreview").classList.remove("hidden");
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $("f_removeReceipt").onclick = () => {
+    state.pendingReceiptFile = null;
+    $("f_receipt").value = "";
+    $("f_existingReceiptData").value = "";
+    $("f_receiptPreview").classList.add("hidden");
+  };
+
+  document.body.addEventListener("click", e => {
+    const btn = e.target.closest("button[data-act], img[data-act]");
+    if (!btn) return;
+    const { act, kind, id, year } = btn.dataset;
+    if (act === "view") {
+      let row;
+      if (kind === "expert-all") {
+        row = state.expertAll.find(r => r.id === id && r.year === year);
+      } else {
+        const list = kind === "welfit" ? state.welfit : state.expert;
+        row = list.find(r => r.id === id);
+      }
+      if (row?.receiptData) openImageView(row.receiptData);
+      return;
+    }
+    const list = kind === "welfit" ? state.welfit : state.expert;
+    const row = list.find(r => r.id === id);
+    if (act === "edit") openModal(kind, row);
+    if (act === "del") deleteRow(kind, id);
+  });
+
+  window.addEventListener("click", e => {
+    if (e.target.id === "modal") closeModal();
+    if (e.target.id === "imageModal") closeImageModal();
+  });
+}
+
+// ===== 認証監視 =====
+onAuthStateChanged(auth, async user => {
+  state.user = user;
+  if (user) {
+    $("userInfo").textContent = "👤 " + (user.displayName || user.email || "ログイン中");
+    $("loginBtn").classList.add("hidden");
+    $("logoutBtn").classList.remove("hidden");
+    $("signinNotice").classList.add("hidden");
+    $("appBody").classList.remove("hidden");
+    await loadAll();
+  } else {
+    $("userInfo").textContent = "未ログイン";
+    $("loginBtn").classList.remove("hidden");
+    $("logoutBtn").classList.add("hidden");
+    $("signinNotice").classList.remove("hidden");
+    $("appBody").classList.add("hidden");
+  }
+});
+
+// ===== 起動 =====
+buildYearSelector();
+setupTabs();
+bindEvents();
+</script>
+</body>
+</html>
