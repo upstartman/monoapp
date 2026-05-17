@@ -718,20 +718,26 @@ function parseBooksText(text) {
 }
 
 function buildYearSelector() {
+  const YEAR_MIN = 2025, YEAR_MAX = 2030;
+  // 現在の選択年度をレンジ内にクランプ
+  const cur = Number(state.year);
+  if (!(cur >= YEAR_MIN && cur <= YEAR_MAX)) {
+    state.year = String(Math.min(YEAR_MAX, Math.max(YEAR_MIN, new Date().getFullYear())));
+  }
   const sel = $("yearSelect");
-  const now = new Date().getFullYear();
   const html = [];
-  for (let y = now + 1; y >= now - 10; y--) {
+  for (let y = YEAR_MAX; y >= YEAR_MIN; y--) {
     html.push(`<option value="${y}"${String(y) === state.year ? " selected" : ""}>${y}年度</option>`);
   }
   sel.innerHTML = html.join("");
   sel.onchange = async () => { state.year = sel.value; await loadAll(); };
 
-  // 過去登録モーダル用の年度プルダウンも
+  // 過去登録モーダル用の年度プルダウンも同じレンジ、デフォルトは現在年度の1つ前
   const lf = $("lf_year");
   const lhtml = [];
-  for (let y = now + 1; y >= now - 10; y--) {
-    lhtml.push(`<option value="${y}"${String(y) === String(now-1) ? " selected" : ""}>${y}年度</option>`);
+  const defaultLegacy = String(Math.max(YEAR_MIN, Number(state.year) - 1));
+  for (let y = YEAR_MAX; y >= YEAR_MIN; y--) {
+    lhtml.push(`<option value="${y}"${String(y) === defaultLegacy ? " selected" : ""}>${y}年度</option>`);
   }
   lf.innerHTML = lhtml.join("");
 }
