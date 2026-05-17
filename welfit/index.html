@@ -409,6 +409,14 @@
     font-family: var(--font-mono);
     font-size: 17px; font-weight: 700; margin-left: 4px;
   }
+  .amount-hint {
+    margin-top: 6px; font-size: 13px; color: var(--text-dim);
+    display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+  }
+  .amount-hint b {
+    color: var(--text); font-family: var(--font-mono);
+    font-size: 14px; font-weight: 700; margin-left: 4px;
+  }
 
   .dup-warning {
     background: rgba(255,107,107,.12); color: #ffb0b0;
@@ -528,18 +536,19 @@
         <input type="date" id="f_date" required />
       </div>
 
-      <div class="welfit-only">
-        <div class="field"><label>金額(税込) *</label>
-          <input type="number" id="f_amount" min="0" step="1" />
+      <div class="field"><label id="f_amountLabel">申請金額（税込）*</label>
+        <input type="number" id="f_amount" min="0" step="1" />
+        <div class="amount-hint hidden" id="f_amountHint">
+          書籍合計（参考）: <b id="bookSumDisplay">¥0</b>
+          <button type="button" id="useSumBtn" class="btn btn-ghost" style="padding:3px 10px; font-size:12px; margin-left:6px;">合計を反映</button>
         </div>
       </div>
 
       <div class="expert-only">
         <div class="field">
-          <label>書籍と金額</label>
+          <label>書籍と金額（参考）<span style="color: var(--text-dim); font-weight: 400; font-size: 12px;"> ※集計には申請金額を使用</span></label>
           <div id="bookTitlesList"></div>
           <button type="button" id="addBookTitleBtn" class="btn btn-ghost" style="padding:6px 10px; font-size:12px; margin-top:4px;">+ 書籍を追加</button>
-          <div class="book-total">合計: <b id="bookSumDisplay">¥0</b></div>
         </div>
         <div id="f_dupWarn" class="dup-warning hidden"></div>
       </div>
@@ -845,7 +854,7 @@ function renderExpert() {
   }
   for (const r of rows) {
     const books = getBooks(r);
-    const total = Number(r.amount || sumBooks(books));
+    const total = Number(r.amount ?? 0);
     used += total;
     const applied = r.applied === true || r.applied === "申請済";
     const receipt = r.receiptData
@@ -966,6 +975,12 @@ function renderModalBookRows(books) {
   updateBookSum(container, $("bookSumDisplay"));
 }
 
+function updateAmountHint(kind) {
+  const hint = $("f_amountHint");
+  if (kind === "expert") hint.classList.remove("hidden");
+  else hint.classList.add("hidden");
+}
+
 function openModal(kind, row) {
   state.pendingReceiptFile = null;
   $("f_kind").value = kind;
@@ -977,9 +992,9 @@ function openModal(kind, row) {
   $("f_receipt").value = "";
   $("f_existingReceiptData").value = row?.receiptData || "";
   document.querySelectorAll(".expert-only").forEach(el => el.style.display = kind === "expert" ? "" : "none");
-  document.querySelectorAll(".welfit-only").forEach(el => el.style.display = kind === "welfit" ? "" : "none");
-  $("f_amount").required = kind === "welfit";
+  $("f_amount").required = true;
   renderModalBookRows(row ? getBooks(row) : []);
+  updateAmountHint(kind);
   if (row?.receiptData) {
     $("f_receiptImg").src = row.receiptData;
     $("f_receiptPreview").classList.remove("hidden");
@@ -1024,14 +1039,12 @@ async function saveModal(e) {
       note: $("f_note").value || "",
       updatedAt: serverTimestamp()
     };
+    data.amount = Number($("f_amount").value || 0);
     if (kind === "expert") {
       const books = readBookRows($("bookTitlesList"));
       data.books = books;
       data.bookTitles = null;
       data.bookTitle = null;
-      data.amount = sumBooks(books);
-    } else {
-      data.amount = Number($("f_amount").value || 0);
     }
     if (state.pendingReceiptFile) {
       saveBtn.textContent = "画像圧縮中…";
@@ -1170,6 +1183,11 @@ function bindEvents() {
     const row = appendBookRow(container, { title: "", amount: "" }, onUpdate);
     row.querySelector("input").focus();
     onUpdate();
+  };
+
+  $("useSumBtn").onclick = () => {
+    const sum = readBookRows($("bookTitlesList")).reduce((s,b) => s + (b.amount || 0), 0);
+    $("f_amount").value = sum;
   };
   $("addLegacyBookBtn").onclick = () => {
     const container = $("legacyBookList");
