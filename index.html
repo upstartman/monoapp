@@ -1,744 +1,967 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>書籍検索 - 楽天ブックス</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { font-family: 'Zen Kaku Gothic New', sans-serif; }
-    .font-serif-jp { font-family: 'Noto Serif JP', serif; }
-    @keyframes fadeSlideIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .animate-fade-in { animation: fadeSlideIn 0.5s ease-out both; }
-    .line-clamp-2 {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .animate-spin { animation: spin 1s linear infinite; }
-    .keyword-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 10px;
-      background: #fef3c7;
-      border: 1px solid #fcd34d;
-      border-radius: 9999px;
-      font-size: 14px;
-      color: #92400e;
-    }
-    .keyword-tag button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: #fcd34d;
-      color: #92400e;
-      font-size: 12px;
-      line-height: 1;
-    }
-    .keyword-tag button:hover {
-      background: #f59e0b;
-      color: white;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>💰 Welfit管理アプリ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #222;
+  }
+  .container {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { color: #333; margin-bottom: 8px; font-size: 26px; text-align: center; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 18px; font-size: 14px; }
+
+  .top-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: 12px; margin-bottom: 20px;
+  }
+  .top-bar label { font-size: 13px; font-weight: 600; color: #555; }
+  .top-bar select {
+    padding: 8px 12px; border-radius: 8px; border: 2px solid #e0e0e0;
+    font-size: 14px; background: white;
+  }
+  .user-info { font-size: 13px; color: #555; }
+
+  .btn {
+    padding: 10px 18px; border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
+  .btn-secondary { background: #e0e4ea; color: #333; }
+  .btn-secondary:hover { background: #cfd5dd; }
+  .btn-danger { background: #e74c3c; color: #fff; }
+  .btn-danger:hover { background: #c0392b; }
+
+  .tabs { display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 2px solid #e0e0e0; }
+  .tab {
+    padding: 12px 24px; background: transparent; border: none;
+    border-bottom: 3px solid transparent; color: #666;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    position: relative; bottom: -2px; transition: all .3s;
+  }
+  .tab:hover { color: #667eea; }
+  .tab.active { color: #667eea; border-bottom-color: #667eea; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn .3s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .signin-notice {
+    background: #f8f9fa; padding: 30px; border-radius: 12px;
+    text-align: center; color: #555;
+  }
+
+  /* ===== 上部スタッツカード ===== */
+  .stats-cards {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin-bottom: 18px;
+  }
+  .stat-card {
+    border-radius: 12px; padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 6px rgba(0,0,0,.05);
+  }
+  .stat-card .label { font-size: 13px; font-weight: 600; color: #555; }
+  .stat-card .value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-budget { background: #d4edda; color: #155724; }
+  .stat-budget .value-wrap { display: flex; align-items: center; gap: 6px; }
+  .stat-budget input[type="number"] {
+    width: 140px; padding: 6px 10px; border: 2px solid #a3d4af;
+    border-radius: 8px; font-size: 18px; font-weight: 700;
+    text-align: right; background: #fff; color: #155724;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-budget input[type="number"]:focus { outline: none; border-color: #4caf50; }
+  .stat-remain { background: #fff3cd; color: #664d03; }
+  .stat-remain.negative { background: #ffd5d5; color: #a00; }
+
+  /* ===== 表 ===== */
+  .ledger-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid #e0e0e0; }
+  .ledger { width: 100%; border-collapse: collapse; font-size: 14px; background: #fff; }
+  .ledger th, .ledger td { border-bottom: 1px solid #e0e0e0; padding: 10px 12px; text-align: left; vertical-align: middle; }
+  .ledger thead th { background: #667eea; color: #fff; font-weight: 600; white-space: nowrap; }
+  .ledger td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ledger tbody tr:hover td { background: #f8f9fa; }
+  .empty-row td { text-align: center; color: #999; padding: 24px; }
+
+  /* ===== 申請済トグル ===== */
+  .applied-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 14px;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    border: none; user-select: none;
+    transition: all .15s;
+  }
+  .applied-toggle.on { background: #cfe9d0; color: #1d6f1f; }
+  .applied-toggle.on:hover { background: #b8dfb9; }
+  .applied-toggle.off { background: #f0f0f0; color: #888; }
+  .applied-toggle.off:hover { background: #e0e0e0; }
+  .applied-toggle .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .applied-toggle.on .dot { background: #1d6f1f; }
+  .applied-toggle.off .dot { background: #aaa; }
+
+  .action-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+  .icon-btn {
+    background: none; border: 1px solid #e0e0e0; border-radius: 6px;
+    padding: 4px 8px; cursor: pointer; font-size: 12px;
+  }
+  .icon-btn:hover { background: #f0f0f0; }
+  .icon-btn.danger:hover { background: #ffe6e6; border-color: #e74c3c; color: #c0392b; }
+
+  .add-btn-wrap { margin-top: 16px; text-align: center; }
+
+  .dup-section {
+    margin-top: 32px; background: #f8f9fa; padding: 20px;
+    border-radius: 12px; border: 1px solid #e0e0e0;
+  }
+  .dup-section h3 { margin-bottom: 12px; color: #333; }
+  .dup-section input[type="search"] {
+    width: 100%; padding: 10px 12px; border: 2px solid #e0e0e0;
+    border-radius: 8px; font-size: 14px; margin-bottom: 12px;
+  }
+  .dup-section input[type="search"]:focus { outline: none; border-color: #667eea; }
+  .book-list { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 8px; overflow: hidden; }
+  .book-list th, .book-list td { border-bottom: 1px solid #eee; padding: 8px 10px; text-align: left; }
+  .book-list th { background: #667eea; color: #fff; }
+  .book-list tr.dup-hit td { background: #ffe6e6; }
+
+  .dup-warning {
+    background: #ffe6e6; color: #a30000;
+    padding: 10px 14px; border-radius: 8px;
+    margin: 10px 0; font-size: 13px;
+  }
+
+  /* ===== 書籍名リスト ===== */
+  .book-title-row {
+    display: flex; gap: 6px; margin-bottom: 6px; align-items: center;
+  }
+  .book-title-row input {
+    flex: 1; padding: 9px 12px; border: 2px solid #e0e0e0;
+    border-radius: 8px; font-size: 14px;
+  }
+  .book-title-row input:focus { outline: none; border-color: #667eea; }
+  .book-title-row .remove {
+    background: #f0f0f0; border: none; border-radius: 6px;
+    width: 32px; height: 32px; cursor: pointer; font-size: 16px; color: #888;
+  }
+  .book-title-row .remove:hover { background: #ffd5d5; color: #c0392b; }
+  #addBookTitleBtn {
+    background: none; border: 1px dashed #667eea; color: #667eea;
+    border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px;
+    margin-top: 4px;
+  }
+  #addBookTitleBtn:hover { background: rgba(102,126,234,0.08); }
+
+  /* ===== モーダル ===== */
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
+  .modal.show { display: flex; align-items: center; justify-content: center; }
+  .modal-content {
+    background: white; border-radius: 15px; padding: 28px;
+    max-width: 560px; width: 92%; max-height: 92vh; overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: slideUp .25s;
+  }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .modal-header h2 { font-size: 20px; color: #333; }
+  .close-btn { background: none; border: none; font-size: 26px; color: #999; cursor: pointer; }
+  .close-btn:hover { color: #333; }
+  .modal-content label { display: block; margin-bottom: 12px; font-size: 13px; color: #555; font-weight: 600; }
+  .modal-content input, .modal-content select, .modal-content textarea {
+    width: 100%; padding: 9px 12px; border: 2px solid #e0e0e0;
+    border-radius: 8px; font-size: 14px; margin-top: 4px;
+    font-family: inherit;
+  }
+  .modal-content input:focus, .modal-content select:focus, .modal-content textarea:focus {
+    outline: none; border-color: #667eea;
+  }
+  .modal-content input[type="file"] {
+    padding: 10px; border: 2px dashed #667eea;
+  }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+  .image-preview-box {
+    max-width: 100%; max-height: 240px; overflow: auto;
+    border: 1px solid #ddd; border-radius: 8px; padding: 10px;
+    background: #f8f9fa; margin-top: 10px;
+  }
+  .image-preview-box img { max-width: 100%; height: auto; display: block; }
+  .image-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 1px solid #ddd; }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 720px) {
+    .container { padding: 24px 16px; }
+    h1 { font-size: 20px; }
+    .ledger { font-size: 12px; }
+    .ledger th, .ledger td { padding: 6px 8px; }
+    .tab { padding: 10px 14px; font-size: 14px; }
+    .stats-cards { grid-template-columns: 1fr; }
+    .stat-card .value { font-size: 18px; }
+  }
+</style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-stone-50 via-amber-50/30 to-stone-100">
-  
-  <!-- ヘッダー -->
-  <header class="bg-white/80 backdrop-blur-sm border-b border-stone-200 sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 py-4">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 bg-gradient-to-br from-amber-600 to-amber-700 rounded-lg flex items-center justify-center shadow-md">
-          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-xl font-bold text-stone-800 font-serif-jp">書籍検索</h1>
-          <p class="text-xs text-stone-500">楽天ブックス</p>
-        </div>
-      </div>
-    </div>
-  </header>
+<body>
+<div class="container">
+  <h1>💰 Welfit管理アプリ</h1>
+  <p class="subtitle">Welfit経費精算の申請内容を年度別に管理</p>
 
-  <main class="max-w-6xl mx-auto px-4 py-8">
-    <!-- 検索フォーム -->
-    <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 mb-8">
-      <div class="space-y-4">
-        <!-- キーワード入力 -->
-        <div>
-          <label class="block text-sm font-medium text-stone-700 mb-2">
-            キーワード（複数指定可・OR検索）
-            <span id="keywordCounter" class="ml-2 text-amber-600 font-normal">0/10</span>
-          </label>
-          <div class="flex gap-2">
-            <div class="relative flex-1">
-              <input type="text" id="keywordInput" placeholder="キーワードを入力してEnterまたは追加ボタン" class="w-full pl-10 pr-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-stone-800 placeholder-stone-400" onkeydown="if(event.key==='Enter'){event.preventDefault();addKeyword();}">
-              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-            </div>
-            <button onclick="addKeyword()" id="addKeywordBtn" class="px-4 py-3 bg-amber-100 hover:bg-amber-200 text-amber-700 font-medium rounded-xl transition-colors">
-              追加
-            </button>
-          </div>
-          <!-- キーワードタグ表示エリア -->
-          <div id="keywordTags" class="flex flex-wrap gap-2 mt-3 min-h-[32px]"></div>
-          <p class="text-xs text-stone-400 mt-2">複数のキーワードを指定すると、いずれかを含む書籍を検索します（OR検索・最大10個）</p>
-        </div>
-        
-        <!-- 価格範囲 -->
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-stone-700 mb-2">最低価格（円）</label>
-            <input type="number" id="minPrice" placeholder="0" min="0" class="w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-stone-800">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-stone-700 mb-2">最高価格（円）</label>
-            <input type="number" id="maxPrice" placeholder="上限なし" min="0" class="w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-stone-800">
-          </div>
-        </div>
-        <p class="text-xs text-stone-400">※価格フィルターは検索結果取得後に適用されます</p>
-        
-        <!-- 検索・クリアボタン -->
-        <div class="flex gap-2">
-          <button onclick="searchBooks()" id="searchBtn" class="flex-1 py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-medium rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-            検索する
-          </button>
-          <button onclick="clearAll()" class="px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium rounded-xl transition-colors">
-            クリア
-          </button>
-        </div>
-        
-        <!-- 検索時間の目安 -->
-        <p id="searchTimeEstimate" class="text-xs text-stone-400 text-center hidden"></p>
-      </div>
+  <div class="top-bar">
+    <label>年度:
+      <select id="yearSelect"></select>
+    </label>
+    <span class="user-info" id="userInfo">未ログイン</span>
+    <button id="loginBtn" class="btn btn-primary">Googleでログイン</button>
+    <button id="logoutBtn" class="btn btn-secondary hidden">ログアウト</button>
+  </div>
+
+  <div id="signinNotice" class="signin-notice">
+    <p>Googleアカウントでログインすると、申請データを年度別に管理できます。</p>
+  </div>
+
+  <div id="appBody" class="hidden">
+    <div class="tabs">
+      <button class="tab active" data-tab="welfit">💼 Wel-fit</button>
+      <button class="tab" data-tab="expert">📚 エキスパート基金</button>
     </div>
 
-    <!-- 進捗表示 -->
-    <div id="progressContainer" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl hidden">
-      <div class="flex items-center gap-3 mb-2">
-        <svg class="w-5 h-5 animate-spin text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-        </svg>
-        <p id="progressMessage" class="text-blue-700"></p>
-      </div>
-      <div class="w-full bg-blue-200 rounded-full h-2">
-        <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
-      </div>
-    </div>
-
-    <!-- 検索統計 -->
-    <div id="statsContainer" class="mb-6 p-4 bg-gray-100 border border-gray-300 rounded-xl hidden">
-      <h3 class="font-bold text-gray-700 mb-2">📊 検索統計</h3>
-      <div id="statsContent" class="text-sm text-gray-600 font-mono"></div>
-    </div>
-
-    <!-- エラー表示 -->
-    <div id="errorContainer" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 hidden">
-      <div class="flex items-start gap-3">
-        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <div>
-          <p id="errorMessage" class="font-medium"></p>
-          <p id="errorDetail" class="text-sm mt-1"></p>
+    <!-- Wel-fit タブ -->
+    <section id="tab-welfit" class="tab-content active">
+      <div class="stats-cards">
+        <div class="stat-card stat-budget">
+          <span class="label">当年度ポイント</span>
+          <span class="value-wrap">
+            <input type="number" id="welfitBudgetInput" min="0" step="1000" />
+            <span>円</span>
+          </span>
+        </div>
+        <div class="stat-card stat-remain" id="welfitRemainCard">
+          <span class="label">残ポイント</span>
+          <span class="value" id="welfitRemain">¥50,000</span>
         </div>
       </div>
-    </div>
 
-    <!-- 結果ヘッダー -->
-    <div id="resultsHeader" class="flex flex-wrap items-center justify-between gap-4 mb-6 hidden">
-      <div>
-        <p class="text-stone-600" id="resultsCount"></p>
-        <p class="text-xs text-stone-400" id="filterInfo"></p>
+      <div class="ledger-wrap">
+        <table class="ledger">
+          <thead>
+            <tr>
+              <th>日付</th>
+              <th>使用ポイント</th>
+              <th>申請済</th>
+              <th>レシート</th>
+              <th>メモ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="welfitRows"></tbody>
+        </table>
       </div>
-      <div class="flex items-center gap-2">
-        <select id="sortBy" onchange="sortAndDisplayResults()" class="px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm text-stone-700 bg-white">
-          <option value="standard">ISBN順</option>
-          <option value="priceAsc">価格が安い順</option>
-          <option value="priceDesc">価格が高い順</option>
-          <option value="dateDesc">発売日が新しい順</option>
-          <option value="dateAsc">発売日が古い順</option>
-          <option value="title">タイトル順</option>
-        </select>
+      <div class="add-btn-wrap">
+        <button id="addWelfit" class="btn btn-primary">+ 行を追加</button>
       </div>
-    </div>
+    </section>
 
-    <!-- 検索結果グリッド -->
-    <div id="resultsGrid" class="grid gap-4 md:grid-cols-2"></div>
-
-    <!-- 初期状態 -->
-    <div id="initialState" class="text-center py-16">
-      <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-100 to-amber-200 rounded-full mb-6">
-        <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-        </svg>
+    <!-- エキスパート基金 タブ -->
+    <section id="tab-expert" class="tab-content">
+      <div class="stats-cards">
+        <div class="stat-card stat-budget">
+          <span class="label">当年度ポイント</span>
+          <span class="value-wrap">
+            <input type="number" id="expertBudgetInput" min="0" step="1000" />
+            <span>円</span>
+          </span>
+        </div>
+        <div class="stat-card stat-remain" id="expertRemainCard">
+          <span class="label">残ポイント</span>
+          <span class="value" id="expertRemain">¥132,000</span>
+        </div>
       </div>
-      <h2 class="text-xl font-bold text-stone-700 mb-2 font-serif-jp">書籍を検索しましょう</h2>
-      <p class="text-stone-500">キーワードと価格範囲を指定して検索できます</p>
-      <p class="text-sm text-stone-400 mt-2">複数キーワード（最大10個）でOR検索が可能です</p>
-      <p class="text-sm text-stone-400">各キーワードにつき最大90件取得します</p>
+
+      <div class="ledger-wrap">
+        <table class="ledger">
+          <thead>
+            <tr>
+              <th>日付</th>
+              <th>使用ポイント</th>
+              <th>申請済</th>
+              <th>書籍名</th>
+              <th>レシート</th>
+              <th>メモ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="expertRows"></tbody>
+        </table>
+      </div>
+      <div class="add-btn-wrap">
+        <button id="addExpert" class="btn btn-primary">+ 行を追加</button>
+      </div>
+
+      <div class="dup-section">
+        <h3>📖 書籍重複チェック（全年度横断）</h3>
+        <input id="bookSearch" type="search" placeholder="書籍名で検索…" />
+        <div style="overflow-x:auto;">
+          <table class="book-list">
+            <thead><tr><th>書籍名</th><th>年度</th><th>金額</th><th>レシート</th></tr></thead>
+            <tbody id="bookListBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 編集モーダル -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modalTitle">行を追加</h2>
+      <button type="button" class="close-btn" onclick="closeModal()">&times;</button>
     </div>
+    <form id="modalForm">
+      <input type="hidden" id="f_id" />
+      <input type="hidden" id="f_kind" />
+      <input type="hidden" id="f_existingReceiptData" />
 
-    <!-- 検索結果なし -->
-    <div id="noResults" class="text-center py-16 hidden">
-      <svg class="w-16 h-16 text-stone-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-      </svg>
-      <p class="text-stone-500">条件に一致する書籍が見つかりませんでした</p>
-      <p class="text-sm text-stone-400 mt-2">キーワードや価格範囲を変更してお試しください</p>
+      <label>日付 <span style="color:#e74c3c">*</span>
+        <input type="date" id="f_date" required />
+      </label>
+      <label>金額(税込) <span style="color:#e74c3c">*</span>
+        <input type="number" id="f_amount" min="0" step="1" required />
+      </label>
+
+      <div class="expert-only">
+        <label>書籍名
+          <div id="bookTitlesList"></div>
+          <button type="button" id="addBookTitleBtn">+ 書籍を追加</button>
+        </label>
+        <div id="f_dupWarn" class="dup-warning hidden"></div>
+      </div>
+
+      <label>レシート画像 (任意)
+        <input type="file" id="f_receipt" accept="image/*" />
+      </label>
+      <div id="f_receiptPreview" class="image-preview-box hidden">
+        <img id="f_receiptImg" alt="プレビュー" />
+        <div style="margin-top:8px; text-align:right;">
+          <button type="button" class="btn btn-danger" id="f_removeReceipt" style="padding:6px 12px; font-size:12px;">画像を削除</button>
+        </div>
+      </div>
+
+      <label>メモ
+        <textarea id="f_note" rows="2"></textarea>
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+        <button type="submit" class="btn btn-primary" id="saveBtn">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 画像表示モーダル -->
+<div id="imageModal" class="modal">
+  <div class="modal-content" style="max-width:800px;">
+    <div class="modal-header">
+      <h2>📷 レシート画像</h2>
+      <button type="button" class="close-btn" onclick="closeImageModal()">&times;</button>
     </div>
-  </main>
-
-  <!-- フッター -->
-  <footer class="border-t border-stone-200 bg-white/50 mt-12">
-    <div class="max-w-6xl mx-auto px-4 py-6 text-center text-sm text-stone-500">
-      <p>楽天ブックス検索APIを使用しています</p>
+    <div style="max-height:70vh; overflow:auto; background:#f8f9fa; padding:10px; border-radius:8px;">
+      <img id="imageModalImg" style="max-width:100%; height:auto; display:block; margin:0 auto;" />
     </div>
-  </footer>
+    <div class="modal-actions">
+      <a id="imageDownloadLink" class="btn btn-primary" download style="text-decoration:none;">ダウンロード</a>
+      <button type="button" class="btn btn-secondary" onclick="closeImageModal()">閉じる</button>
+    </div>
+  </div>
+</div>
 
-  <script>
-    // APIキー（埋め込み）
-    const APP_ID = 'f73e85f4-2fa7-4c54-92f6-bec5df99e574';
-    const ACCESS_KEY = 'pk_tGwZPVUnMxqhyTKA5UBTZJpqno2UXiMV5eKvBf3zfUp';
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, updateDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // 設定
-    const MAX_KEYWORDS = 10;
-    const HITS_PER_PAGE = 30;
-    const PAGES_PER_KEYWORD = 3;        // 各キーワードで3ページ取得（最大90件）
-    const API_WAIT_MS = 1200;           // 通常の待機時間（1.2秒）
-    const RATE_LIMIT_WAIT_MS = 5000;    // 429エラー時の待機時間（5秒）
-    const MAX_RETRIES = 3;              // 最大リトライ回数
+// ===== Firebase 設定 =====
+const firebaseConfig = {
+  apiKey: "AIzaSyCI2mhBCXeViCfsy-B7vo3VyEONqk1MWyg",
+  authDomain: "wel-fit-management.firebaseapp.com",
+  projectId: "wel-fit-management",
+  storageBucket: "wel-fit-management.firebasestorage.app",
+  messagingSenderId: "75123432379",
+  appId: "1:75123432379:web:f606b61809ad728bfac29e"
+};
+const DEFAULT_BUDGETS = { welfit: 50000, expert: 132000 };
 
-    // グローバル変数
-    let keywords = [];
-    let allBooks = [];
-    let filteredBooks = [];
-    let searchStats = {};
+// 画像圧縮設定
+const IMAGE_MAX_EDGE = 1200;
+const IMAGE_JPEG_QUALITY = 0.7;
+const IMAGE_MAX_BYTES = 700 * 1024;
 
-    // ローカルストレージのキー
-    const STORAGE_KEYS = {
-      keywords: 'bookSearch_keywords',
-      minPrice: 'bookSearch_minPrice',
-      maxPrice: 'bookSearch_maxPrice'
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+// ===== 状態 =====
+const state = {
+  user: null,
+  year: String(new Date().getFullYear()),
+  welfit: [],
+  expert: [],
+  expertAll: [],
+  budgets: { welfit: DEFAULT_BUDGETS.welfit, expert: DEFAULT_BUDGETS.expert },
+  pendingReceiptFile: null
+};
+
+const $ = id => document.getElementById(id);
+const fmtYen = n => "¥" + Number(n || 0).toLocaleString("ja-JP");
+const escapeHtml = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const normalizeTitle = s => String(s || "").trim().toLowerCase().replace(/\s+/g, "").replace(/[　]/g, "").normalize("NFKC");
+const getBookTitles = r => Array.isArray(r.bookTitles) ? r.bookTitles : (r.bookTitle ? [r.bookTitle] : []);
+
+// ===== 年度セレクタ =====
+function buildYearSelector() {
+  const sel = $("yearSelect");
+  const now = new Date().getFullYear();
+  sel.innerHTML = "";
+  for (let y = now + 1; y >= now - 5; y--) {
+    const opt = document.createElement("option");
+    opt.value = String(y);
+    opt.textContent = y + "年度";
+    if (String(y) === state.year) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  sel.onchange = async () => {
+    state.year = sel.value;
+    await loadAll();
+  };
+}
+
+function setupTabs() {
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(s => s.classList.remove("active"));
+      btn.classList.add("active");
+      $("tab-" + btn.dataset.tab).classList.add("active");
     };
+  });
+}
 
-    // 初期化
-    document.addEventListener('DOMContentLoaded', () => {
-      loadSavedData();
-      renderKeywordTags();
-      updateKeywordCounter();
-    });
+// ===== Firestore パス =====
+const yearDocRef = (uid, year) => doc(db, "users", uid, "years", year);
+const appsCol = (uid, year, kind) =>
+  collection(db, "users", uid, "years", year, kind === "welfit" ? "welfit_apps" : "expert_apps");
 
-    function loadSavedData() {
-      const savedKeywords = localStorage.getItem(STORAGE_KEYS.keywords);
-      if (savedKeywords) {
-        keywords = JSON.parse(savedKeywords).slice(0, MAX_KEYWORDS);
-      }
-      
-      const savedMinPrice = localStorage.getItem(STORAGE_KEYS.minPrice);
-      if (savedMinPrice) {
-        document.getElementById('minPrice').value = savedMinPrice;
-      }
-      
-      const savedMaxPrice = localStorage.getItem(STORAGE_KEYS.maxPrice);
-      if (savedMaxPrice) {
-        document.getElementById('maxPrice').value = savedMaxPrice;
-      }
-    }
+// ===== 画像圧縮 =====
+async function compressImageToDataUrl(file) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("ファイル読み込み失敗"));
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => reject(new Error("画像読み込み失敗"));
+    im.src = dataUrl;
+  });
+  let { width, height } = img;
+  if (Math.max(width, height) > IMAGE_MAX_EDGE) {
+    const s = IMAGE_MAX_EDGE / Math.max(width, height);
+    width = Math.round(width * s);
+    height = Math.round(height * s);
+  }
+  const cv = document.createElement("canvas");
+  cv.width = width; cv.height = height;
+  cv.getContext("2d").drawImage(img, 0, 0, width, height);
+  let q = IMAGE_JPEG_QUALITY;
+  let out = cv.toDataURL("image/jpeg", q);
+  while (out.length > IMAGE_MAX_BYTES * 1.37 && q > 0.3) {
+    q -= 0.1;
+    out = cv.toDataURL("image/jpeg", q);
+  }
+  return out;
+}
 
-    function saveData() {
-      localStorage.setItem(STORAGE_KEYS.keywords, JSON.stringify(keywords));
-      localStorage.setItem(STORAGE_KEYS.minPrice, document.getElementById('minPrice').value);
-      localStorage.setItem(STORAGE_KEYS.maxPrice, document.getElementById('maxPrice').value);
-    }
+// ===== 読み込み =====
+async function loadAll() {
+  if (!state.user) return;
+  const uid = state.user.uid;
+  try {
+    // 年度ドキュメント（予算保持）
+    const yearSnap = await getDoc(yearDocRef(uid, state.year));
+    const yearData = yearSnap.exists() ? yearSnap.data() : {};
+    state.budgets.welfit = Number.isFinite(yearData.welfitBudget) ? yearData.welfitBudget : DEFAULT_BUDGETS.welfit;
+    state.budgets.expert = Number.isFinite(yearData.expertBudget) ? yearData.expertBudget : DEFAULT_BUDGETS.expert;
 
-    function updateKeywordCounter() {
-      const counter = document.getElementById('keywordCounter');
-      const addBtn = document.getElementById('addKeywordBtn');
-      const input = document.getElementById('keywordInput');
-      const estimate = document.getElementById('searchTimeEstimate');
-      
-      counter.textContent = `${keywords.length}/${MAX_KEYWORDS}`;
-      
-      if (keywords.length >= MAX_KEYWORDS) {
-        counter.classList.add('text-red-500');
-        counter.classList.remove('text-amber-600');
-        addBtn.disabled = true;
-        addBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        input.disabled = true;
-        input.placeholder = `キーワードは最大${MAX_KEYWORDS}個までです`;
-      } else {
-        counter.classList.remove('text-red-500');
-        counter.classList.add('text-amber-600');
-        addBtn.disabled = false;
-        addBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        input.disabled = false;
-        input.placeholder = 'キーワードを入力してEnterまたは追加ボタン';
-      }
-      
-      // 検索時間の目安を表示
-      if (keywords.length > 0) {
-        const totalCalls = keywords.length * PAGES_PER_KEYWORD;
-        const estimatedSeconds = Math.ceil(totalCalls * API_WAIT_MS / 1000);
-        estimate.textContent = `検索時間の目安: 約${estimatedSeconds}秒（${keywords.length}キーワード × ${PAGES_PER_KEYWORD}ページ = ${totalCalls}回のAPI呼び出し）`;
-        estimate.classList.remove('hidden');
-      } else {
-        estimate.classList.add('hidden');
-      }
-    }
+    const [welSnap, expSnap] = await Promise.all([
+      getDocs(appsCol(uid, state.year, "welfit")),
+      getDocs(appsCol(uid, state.year, "expert"))
+    ]);
+    state.welfit = welSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    state.expert = expSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    function addKeyword() {
-      if (keywords.length >= MAX_KEYWORDS) return;
-      
-      const input = document.getElementById('keywordInput');
-      const keyword = input.value.trim();
-      
-      if (keyword && !keywords.includes(keyword)) {
-        keywords.push(keyword);
-        input.value = '';
-        renderKeywordTags();
-        updateKeywordCounter();
-        saveData();
-      }
-    }
+    state.expertAll = [];
+    const yearsSnap = await getDocs(collection(db, "users", uid, "years"));
+    await Promise.all(yearsSnap.docs.map(async yd => {
+      const sub = await getDocs(appsCol(uid, yd.id, "expert"));
+      sub.docs.forEach(d => state.expertAll.push({ id: d.id, year: yd.id, ...d.data() }));
+    }));
+  } catch (e) {
+    console.error("読み込み失敗:", e);
+    alert("データ読み込みに失敗: " + e.message);
+  }
+  $("welfitBudgetInput").value = state.budgets.welfit;
+  $("expertBudgetInput").value = state.budgets.expert;
+  renderWelfit();
+  renderExpert();
+  renderBookList();
+}
 
-    function removeKeyword(index) {
-      keywords.splice(index, 1);
-      renderKeywordTags();
-      updateKeywordCounter();
-      saveData();
-    }
-
-    function renderKeywordTags() {
-      const container = document.getElementById('keywordTags');
-      
-      if (keywords.length === 0) {
-        container.innerHTML = '<span class="text-stone-400 text-sm">キーワードを追加してください</span>';
-        return;
-      }
-      
-      container.innerHTML = keywords.map((keyword, index) => `
-        <span class="keyword-tag">
-          ${escapeHtml(keyword)}
-          <button onclick="removeKeyword(${index})" title="削除">×</button>
-        </span>
-      `).join('');
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-    }
-
-    function clearAll() {
-      keywords = [];
-      document.getElementById('keywordInput').value = '';
-      document.getElementById('minPrice').value = '';
-      document.getElementById('maxPrice').value = '';
-      renderKeywordTags();
-      updateKeywordCounter();
-      saveData();
-      
-      allBooks = [];
-      filteredBooks = [];
-      document.getElementById('resultsGrid').innerHTML = '';
-      document.getElementById('resultsHeader').classList.add('hidden');
-      document.getElementById('noResults').classList.add('hidden');
-      document.getElementById('initialState').classList.remove('hidden');
-      document.getElementById('statsContainer').classList.add('hidden');
-    }
-
-    function showError(message, detail = '') {
-      const container = document.getElementById('errorContainer');
-      document.getElementById('errorMessage').textContent = message;
-      document.getElementById('errorDetail').textContent = detail;
-      container.classList.remove('hidden');
-    }
-
-    function hideError() {
-      document.getElementById('errorContainer').classList.add('hidden');
-    }
-
-    function showProgress(message, percent) {
-      const container = document.getElementById('progressContainer');
-      document.getElementById('progressMessage').textContent = message;
-      document.getElementById('progressBar').style.width = `${percent}%`;
-      container.classList.remove('hidden');
-    }
-
-    function hideProgress() {
-      document.getElementById('progressContainer').classList.add('hidden');
-    }
-
-    function showStats(stats) {
-      const container = document.getElementById('statsContainer');
-      const content = document.getElementById('statsContent');
-      
-      let html = `
-        <div>API呼び出し: 成功 ${stats.successCount}回 / リトライ ${stats.retryCount}回</div>
-        <div>取得書籍数（重複含む）: ${stats.totalFetched}件</div>
-        <div>ユニーク書籍数（ISBN重複除去後）: ${stats.uniqueCount}件</div>
-        <div>価格フィルター後: ${stats.filteredCount}件</div>
-        <div class="mt-2 text-xs">キーワード別取得数:</div>
-      `;
-      
-      for (const [kw, info] of Object.entries(stats.keywordResults)) {
-        if (info.success) {
-          html += `<div class="ml-2 text-green-700">✅「${escapeHtml(kw)}」: ${info.count}件（${info.pages}ページ）</div>`;
-        } else {
-          html += `<div class="ml-2 text-red-600">❌「${escapeHtml(kw)}」: ${info.error}</div>`;
-        }
-      }
-      
-      content.innerHTML = html;
-      container.classList.remove('hidden');
-    }
-
-    function wait(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // API呼び出し（1ページ・リトライ付き）
-    async function fetchPage(keyword, page) {
-      const params = new URLSearchParams({
-        applicationId: APP_ID,
-        accessKey: ACCESS_KEY,
-        title: keyword,
-        hits: HITS_PER_PAGE,
-        page: page,
-        sort: 'standard',
-        outOfStockFlag: 1,
-        formatVersion: 2,
-        format: 'json'
-      });
-
-      const url = `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
-      
-      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          if (attempt > 1) {
-            searchStats.retryCount++;
-          }
-          
-          const response = await fetch(url);
-          
-          // 429 Too Many Requests
-          if (response.status === 429) {
-            if (attempt < MAX_RETRIES) {
-              await wait(RATE_LIMIT_WAIT_MS);
-              continue;
-            }
-            return { success: false, items: [], error: 'レート制限', hasMore: false };
-          }
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          
-          const data = await response.json();
-          
-          if (data.error || data.errors) {
-            throw new Error(data.error_description || data.errors?.errorMessage || 'API Error');
-          }
-          
-          const items = data.Items || [];
-          const hasMore = page < (data.pageCount || 1) && items.length === HITS_PER_PAGE;
-          
-          return { success: true, items, hasMore };
-          
-        } catch (err) {
-          if (attempt < MAX_RETRIES) {
-            await wait(RATE_LIMIT_WAIT_MS);
-            continue;
-          }
-          return { success: false, items: [], error: err.message, hasMore: false };
-        }
-      }
-      
-      return { success: false, items: [], error: 'リトライ上限', hasMore: false };
-    }
-
-    // 書籍検索
-    async function searchBooks() {
-      hideError();
-      hideProgress();
-      
-      if (keywords.length === 0) {
-        showError('キーワードを1つ以上追加してください');
-        return;
-      }
-
-      saveData();
-
-      const btn = document.getElementById('searchBtn');
-      btn.disabled = true;
-      btn.innerHTML = `
-        <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-        </svg>
-        検索中...
-      `;
-
-      document.getElementById('initialState').classList.add('hidden');
-      document.getElementById('statsContainer').classList.add('hidden');
-
-      // 統計情報
-      searchStats = {
-        successCount: 0,
-        retryCount: 0,
-        totalFetched: 0,
-        uniqueCount: 0,
-        filteredCount: 0,
-        keywordResults: {}
-      };
-
-      // 全書籍を格納（ISBN -> book）
-      const booksMap = new Map();
-      
-      // 総API呼び出し回数
-      const totalCalls = keywords.length * PAGES_PER_KEYWORD;
-      let currentCall = 0;
-
-      // 各キーワードを順番に処理
-      for (let i = 0; i < keywords.length; i++) {
-        const keyword = keywords[i];
-        let keywordTotal = 0;
-        let pagesLoaded = 0;
-        let hasError = false;
-        let errorMsg = '';
-        
-        // 各ページを取得
-        for (let page = 1; page <= PAGES_PER_KEYWORD; page++) {
-          currentCall++;
-          const percent = Math.round((currentCall / totalCalls) * 100);
-          showProgress(`検索中... 「${keyword}」 ページ${page}/${PAGES_PER_KEYWORD} (${currentCall}/${totalCalls})`, percent);
-          
-          const result = await fetchPage(keyword, page);
-          
-          if (result.success) {
-            searchStats.successCount++;
-            keywordTotal += result.items.length;
-            pagesLoaded++;
-            
-            // ISBNで重複チェック
-            for (const book of result.items) {
-              const key = book.isbn || `url:${book.itemUrl}`;
-              if (!booksMap.has(key)) {
-                booksMap.set(key, book);
-              }
-            }
-            
-            // 次のページがない場合は終了
-            if (!result.hasMore) {
-              // 残りのページ分をスキップ
-              currentCall += (PAGES_PER_KEYWORD - page);
-              break;
-            }
-          } else {
-            hasError = true;
-            errorMsg = result.error;
-            // エラーでも続行（次のキーワードへ）
-            currentCall += (PAGES_PER_KEYWORD - page);
-            break;
-          }
-          
-          // 次のAPI呼び出し前に待機
-          if (page < PAGES_PER_KEYWORD || i < keywords.length - 1) {
-            await wait(API_WAIT_MS);
-          }
-        }
-        
-        searchStats.totalFetched += keywordTotal;
-        
-        if (hasError && keywordTotal === 0) {
-          searchStats.keywordResults[keyword] = { success: false, error: errorMsg };
-        } else {
-          searchStats.keywordResults[keyword] = { success: true, count: keywordTotal, pages: pagesLoaded };
-        }
-      }
-
-      hideProgress();
-
-      // Mapから配列に変換し、ISBNでソート（一貫性のため）
-      allBooks = Array.from(booksMap.values());
-      allBooks.sort((a, b) => {
-        const isbnA = a.isbn || '';
-        const isbnB = b.isbn || '';
-        return isbnA.localeCompare(isbnB);
-      });
-      
-      searchStats.uniqueCount = allBooks.length;
-      
-      // 価格フィルタリング
-      applyPriceFilterAndDisplay();
-      
-      // 統計表示
-      showStats(searchStats);
-      
-      resetButton();
-    }
-
-    function applyPriceFilterAndDisplay() {
-      const minPrice = parseInt(document.getElementById('minPrice').value) || 0;
-      const maxPrice = parseInt(document.getElementById('maxPrice').value) || Infinity;
-      
-      filteredBooks = allBooks.filter(book => {
-        const price = book.itemPrice || 0;
-        return price >= minPrice && price <= maxPrice;
-      });
-      
-      searchStats.filteredCount = filteredBooks.length;
-      
-      sortAndDisplayResults();
-    }
-
-    function resetButton() {
-      const btn = document.getElementById('searchBtn');
-      btn.disabled = false;
-      btn.innerHTML = `
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-        </svg>
-        検索する
-      `;
-    }
-
-    function sortAndDisplayResults() {
-      const sortBy = document.getElementById('sortBy').value;
-      
-      let sortedBooks = [...filteredBooks];
-      
-      switch (sortBy) {
-        case 'priceAsc':
-          sortedBooks.sort((a, b) => (a.itemPrice || 0) - (b.itemPrice || 0));
-          break;
-        case 'priceDesc':
-          sortedBooks.sort((a, b) => (b.itemPrice || 0) - (a.itemPrice || 0));
-          break;
-        case 'dateDesc':
-          sortedBooks.sort((a, b) => (b.salesDate || '').localeCompare(a.salesDate || ''));
-          break;
-        case 'dateAsc':
-          sortedBooks.sort((a, b) => (a.salesDate || '').localeCompare(b.salesDate || ''));
-          break;
-        case 'title':
-          sortedBooks.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-          break;
-        default:
-          // ISBN順（デフォルト - 一貫性のため）
-          sortedBooks.sort((a, b) => (a.isbn || '').localeCompare(b.isbn || ''));
-          break;
-      }
-
-      displayResults(sortedBooks);
-    }
-
-    function displayResults(booksToShow) {
-      const grid = document.getElementById('resultsGrid');
-      const header = document.getElementById('resultsHeader');
-      const noResults = document.getElementById('noResults');
-      const countEl = document.getElementById('resultsCount');
-      const filterInfoEl = document.getElementById('filterInfo');
-
-      if (booksToShow.length === 0) {
-        header.classList.add('hidden');
-        grid.innerHTML = '';
-        noResults.classList.remove('hidden');
-        return;
-      }
-
-      noResults.classList.add('hidden');
-      header.classList.remove('hidden');
-      
-      countEl.innerHTML = `<span class="font-bold text-amber-700">${booksToShow.length}</span> 件の書籍が見つかりました`;
-      
-      const minPrice = document.getElementById('minPrice').value;
-      const maxPrice = document.getElementById('maxPrice').value;
-      let filterText = '';
-      if (minPrice || maxPrice) {
-        filterText = `価格フィルター: ${minPrice || '0'}円〜${maxPrice || '上限なし'}円`;
-        if (allBooks.length !== filteredBooks.length) {
-          filterText += ` (全${allBooks.length}件から絞り込み)`;
-        }
-      }
-      filterInfoEl.textContent = filterText;
-
-      grid.innerHTML = booksToShow.map((book, index) => createBookCard(book, index)).join('');
-    }
-
-    function createBookCard(book, index) {
-      const formatPrice = (price) => {
-        return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(price || 0);
-      };
-
-      const imageHtml = book.largeImageUrl 
-        ? `<img src="${book.largeImageUrl}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover" style="min-height: 160px" loading="lazy">`
-        : `<div class="w-full h-40 flex items-center justify-center">
-            <svg class="w-10 h-10 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-            </svg>
-          </div>`;
-
-      return `
-        <div class="group animate-fade-in" style="animation-delay: ${Math.min(index * 0.02, 0.5)}s">
-          <div class="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-stone-100">
-            <div class="flex">
-              <div class="relative w-28 flex-shrink-0 bg-gradient-to-br from-stone-100 to-stone-200">
-                ${imageHtml}
-              </div>
-              <div class="flex-1 p-4 flex flex-col">
-                <h3 class="font-bold text-stone-800 line-clamp-2 mb-2 group-hover:text-amber-700 transition-colors font-serif-jp">
-                  ${escapeHtml(book.title)}
-                </h3>
-                <div class="space-y-1 text-sm text-stone-600 flex-1">
-                  <p class="flex items-center gap-2">
-                    <span class="text-stone-400 text-xs w-14">著者</span>
-                    <span class="font-medium truncate">${escapeHtml(book.author || '不明')}</span>
-                  </p>
-                  <p class="flex items-center gap-2">
-                    <span class="text-stone-400 text-xs w-14">出版社</span>
-                    <span class="truncate">${escapeHtml(book.publisherName || '不明')}</span>
-                  </p>
-                  <p class="flex items-center gap-2">
-                    <span class="text-stone-400 text-xs w-14">発売日</span>
-                    <span>${escapeHtml(book.salesDate || '不明')}</span>
-                  </p>
-                </div>
-                <div class="flex items-center justify-between mt-3 pt-3 border-t border-stone-100">
-                  <span class="text-lg font-bold text-amber-700 font-serif-jp">${formatPrice(book.itemPrice)}</span>
-                  <a href="${book.itemUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded transition-colors">
-                    購入する
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                    </svg>
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
+// ===== 表示: Wel-fit =====
+function renderWelfit() {
+  const tbody = $("welfitRows");
+  tbody.innerHTML = "";
+  let used = 0;
+  const rows = [...state.welfit].sort((a,b) => (a.date||"").localeCompare(b.date||""));
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">まだ申請がありません</td></tr>`;
+  }
+  for (const r of rows) {
+    used += Number(r.amount || 0);
+    const hasReceipt = !!r.receiptData;
+    const receiptCell = hasReceipt
+      ? `<img class="image-thumb" src="${escapeHtml(r.receiptData)}" alt="receipt" data-act="view" data-id="${r.id}" data-kind="welfit" />`
+      : `<span style="color:#999;font-size:12px;">なし</span>`;
+    const applied = r.applied === true || r.applied === "申請済";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date || "")}</td>
+      <td class="num">${fmtYen(r.amount)}</td>
+      <td>
+        <button class="applied-toggle ${applied ? "on" : "off"}" data-act="toggle" data-kind="welfit" data-id="${r.id}">
+          <span class="dot"></span>${applied ? "申請済" : "未申請"}
+        </button>
+      </td>
+      <td>${receiptCell}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td>
+        <div class="action-btns">
+          <button class="icon-btn" data-act="edit" data-kind="welfit" data-id="${r.id}">✏️</button>
+          <button class="icon-btn danger" data-act="del" data-kind="welfit" data-id="${r.id}">🗑</button>
         </div>
-      `;
+      </td>`;
+    tbody.appendChild(tr);
+  }
+  const remain = state.budgets.welfit - used;
+  $("welfitRemain").textContent = fmtYen(remain);
+  $("welfitRemainCard").classList.toggle("negative", remain < 0);
+}
+
+// ===== 表示: エキスパート基金 =====
+function renderExpert() {
+  const tbody = $("expertRows");
+  tbody.innerHTML = "";
+  let used = 0;
+  const rows = [...state.expert].sort((a,b) => (a.date||"").localeCompare(b.date||""));
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">まだ申請がありません</td></tr>`;
+  }
+  for (const r of rows) {
+    used += Number(r.amount || 0);
+    const hasReceipt = !!r.receiptData;
+    const titles = getBookTitles(r);
+    const titleNorms = titles.map(normalizeTitle);
+    const dupCount = titles.filter((_, i) =>
+      state.expertAll.some(e =>
+        getBookTitles(e).some(t => normalizeTitle(t) === titleNorms[i]) &&
+        !(e.year === state.year && e.id === r.id)
+      )
+    ).length;
+    const dupMark = dupCount ? ` <span title="他に同名あり" style="color:#c00">⚠</span>` : "";
+    const titlesHtml = titles.length
+      ? titles.map(t => escapeHtml(t)).join("<br>")
+      : `<span style="color:#999">—</span>`;
+    const receiptCell = hasReceipt
+      ? `<img class="image-thumb" src="${escapeHtml(r.receiptData)}" alt="receipt" data-act="view" data-id="${r.id}" data-kind="expert" />`
+      : `<span style="color:#999;font-size:12px;">なし</span>`;
+    const applied = r.applied === true || r.applied === "申請済";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(r.date || "")}</td>
+      <td class="num">${fmtYen(r.amount)}</td>
+      <td>
+        <button class="applied-toggle ${applied ? "on" : "off"}" data-act="toggle" data-kind="expert" data-id="${r.id}">
+          <span class="dot"></span>${applied ? "申請済" : "未申請"}
+        </button>
+      </td>
+      <td>${titlesHtml}${dupMark}</td>
+      <td>${receiptCell}</td>
+      <td>${escapeHtml(r.note || "")}</td>
+      <td>
+        <div class="action-btns">
+          <button class="icon-btn" data-act="edit" data-kind="expert" data-id="${r.id}">✏️</button>
+          <button class="icon-btn danger" data-act="del" data-kind="expert" data-id="${r.id}">🗑</button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+  const remain = state.budgets.expert - used;
+  $("expertRemain").textContent = fmtYen(remain);
+  $("expertRemainCard").classList.toggle("negative", remain < 0);
+}
+
+// ===== 書籍重複一覧 =====
+function renderBookList(filter = "") {
+  const body = $("bookListBody");
+  body.innerHTML = "";
+  const norm = normalizeTitle(filter);
+
+  // 全エントリを (書籍, app) のペアにflatten
+  const flat = [];
+  state.expertAll.forEach(e => {
+    const titles = getBookTitles(e);
+    titles.forEach(t => flat.push({ title: t, year: e.year, amount: e.amount, receiptData: e.receiptData, appId: e.id }));
+  });
+
+  // 重複カウント
+  const counts = new Map();
+  flat.forEach(f => {
+    const k = normalizeTitle(f.title);
+    counts.set(k, (counts.get(k) || 0) + 1);
+  });
+
+  const list = flat
+    .filter(f => !filter || normalizeTitle(f.title).includes(norm))
+    .sort((a,b) => (a.title||"").localeCompare(b.title||"", "ja"));
+
+  for (const f of list) {
+    const isDup = counts.get(normalizeTitle(f.title)) > 1;
+    const tr = document.createElement("tr");
+    if (isDup) tr.classList.add("dup-hit");
+    const receipt = f.receiptData
+      ? `<img class="image-thumb" src="${escapeHtml(f.receiptData)}" data-act="view" data-id="${f.appId}" data-kind="expert-all" data-year="${escapeHtml(f.year)}" />`
+      : "—";
+    tr.innerHTML = `
+      <td>${escapeHtml(f.title)}${isDup ? " ⚠重複" : ""}</td>
+      <td>${escapeHtml(f.year)}</td>
+      <td>${fmtYen(f.amount)}</td>
+      <td>${receipt}</td>`;
+    body.appendChild(tr);
+  }
+  if (list.length === 0) {
+    body.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#999;padding:16px;">該当する書籍がありません</td></tr>`;
+  }
+}
+
+// ===== モーダル =====
+window.closeModal = () => $("modal").classList.remove("show");
+window.closeImageModal = () => $("imageModal").classList.remove("show");
+
+function appendBookTitleRow(value = "") {
+  const wrap = $("bookTitlesList");
+  const idx = wrap.children.length + 1;
+  const row = document.createElement("div");
+  row.className = "book-title-row";
+  row.innerHTML = `
+    <input type="text" placeholder="書籍名 ${idx}" />
+    <button type="button" class="remove" title="削除">×</button>`;
+  row.querySelector("input").value = value;
+  row.querySelector("input").addEventListener("input", checkModalDup);
+  row.querySelector(".remove").onclick = () => {
+    if (wrap.children.length > 1) {
+      row.remove();
+    } else {
+      row.querySelector("input").value = "";
     }
-  </script>
+    checkModalDup();
+  };
+  wrap.appendChild(row);
+  return row;
+}
+
+function renderBookTitleInputs(titles) {
+  const wrap = $("bookTitlesList");
+  wrap.innerHTML = "";
+  const list = titles.length ? titles : [""];
+  list.forEach(t => appendBookTitleRow(t));
+}
+
+function getBookTitlesFromForm() {
+  return [...$("bookTitlesList").querySelectorAll("input")]
+    .map(i => i.value.trim())
+    .filter(v => v);
+}
+
+function openModal(kind, row) {
+  state.pendingReceiptFile = null;
+  $("f_kind").value = kind;
+  $("f_id").value = row ? row.id : "";
+  $("modalTitle").textContent = (row ? "編集" : "追加") + (kind === "welfit" ? " — Wel-fit" : " — エキスパート基金");
+  $("f_date").value = row?.date || new Date().toISOString().slice(0,10);
+  $("f_amount").value = row?.amount ?? "";
+  $("f_note").value = row?.note || "";
+  $("f_receipt").value = "";
+  $("f_existingReceiptData").value = row?.receiptData || "";
+  document.querySelectorAll(".expert-only").forEach(el => {
+    el.style.display = kind === "expert" ? "" : "none";
+  });
+  renderBookTitleInputs(row ? getBookTitles(row) : []);
+  if (row?.receiptData) {
+    $("f_receiptImg").src = row.receiptData;
+    $("f_receiptPreview").classList.remove("hidden");
+  } else {
+    $("f_receiptPreview").classList.add("hidden");
+  }
+  checkModalDup();
+  $("modal").classList.add("show");
+}
+
+function checkModalDup() {
+  const kind = $("f_kind").value;
+  const warn = $("f_dupWarn");
+  if (kind !== "expert") { warn.classList.add("hidden"); return; }
+  const titles = getBookTitlesFromForm();
+  const editingId = $("f_id").value;
+  if (titles.length === 0) { warn.classList.add("hidden"); return; }
+  const dups = [];
+  for (const t of titles) {
+    const norm = normalizeTitle(t);
+    const hits = state.expertAll.filter(e =>
+      getBookTitles(e).some(et => normalizeTitle(et) === norm) &&
+      e.id !== editingId
+    );
+    if (hits.length > 0) {
+      dups.push(`「${t}」: ${hits.length}件（${hits.map(h => h.year + "年度").join(", ")}）`);
+    }
+  }
+  if (dups.length === 0) { warn.classList.add("hidden"); return; }
+  warn.innerHTML = `⚠ 重複の可能性:<br>${dups.join("<br>")}`;
+  warn.classList.remove("hidden");
+}
+
+async function saveModal(e) {
+  e.preventDefault();
+  if (!state.user) return;
+  const saveBtn = $("saveBtn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "保存中…";
+  try {
+    const uid = state.user.uid;
+    const kind = $("f_kind").value;
+    const id = $("f_id").value;
+
+    const data = {
+      date: $("f_date").value,
+      amount: Number($("f_amount").value || 0),
+      note: $("f_note").value || "",
+      updatedAt: serverTimestamp()
+    };
+    if (kind === "expert") {
+      data.bookTitles = getBookTitlesFromForm();
+      data.bookTitle = null;
+    }
+    if (state.pendingReceiptFile) {
+      saveBtn.textContent = "画像を圧縮中…";
+      data.receiptData = await compressImageToDataUrl(state.pendingReceiptFile);
+    } else {
+      data.receiptData = $("f_existingReceiptData").value || "";
+    }
+
+    saveBtn.textContent = "保存中…";
+    await setDoc(yearDocRef(uid, state.year), { year: state.year }, { merge: true });
+
+    if (id) {
+      await setDoc(doc(appsCol(uid, state.year, kind), id), data, { merge: true });
+    } else {
+      data.applied = false;
+      data.createdAt = serverTimestamp();
+      await addDoc(appsCol(uid, state.year, kind), data);
+    }
+    closeModal();
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    alert("保存失敗: " + err.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "保存";
+  }
+}
+
+async function toggleApplied(kind, id) {
+  const uid = state.user.uid;
+  const list = kind === "welfit" ? state.welfit : state.expert;
+  const row = list.find(r => r.id === id);
+  if (!row) return;
+  const current = row.applied === true || row.applied === "申請済";
+  const next = !current;
+  // 楽観更新
+  row.applied = next;
+  if (kind === "welfit") renderWelfit(); else renderExpert();
+  try {
+    await updateDoc(doc(appsCol(uid, state.year, kind), id), {
+      applied: next, updatedAt: serverTimestamp()
+    });
+  } catch (e) {
+    alert("更新失敗: " + e.message);
+    await loadAll();
+  }
+}
+
+async function deleteRow(kind, id) {
+  if (!confirm("削除しますか？")) return;
+  const uid = state.user.uid;
+  await deleteDoc(doc(appsCol(uid, state.year, kind), id));
+  await loadAll();
+}
+
+function openImageView(url) {
+  $("imageModalImg").src = url;
+  $("imageDownloadLink").href = url;
+  $("imageModal").classList.add("show");
+}
+
+// ===== 予算編集 =====
+async function saveBudget(kind) {
+  if (!state.user) return;
+  const uid = state.user.uid;
+  const input = kind === "welfit" ? $("welfitBudgetInput") : $("expertBudgetInput");
+  const val = Number(input.value);
+  if (!Number.isFinite(val) || val < 0) {
+    input.value = state.budgets[kind];
+    return;
+  }
+  state.budgets[kind] = val;
+  try {
+    await setDoc(yearDocRef(uid, state.year), {
+      year: state.year,
+      [kind === "welfit" ? "welfitBudget" : "expertBudget"]: val
+    }, { merge: true });
+    if (kind === "welfit") renderWelfit(); else renderExpert();
+  } catch (e) {
+    alert("予算保存失敗: " + e.message);
+  }
+}
+
+// ===== イベント =====
+function bindEvents() {
+  $("loginBtn").onclick = () => signInWithPopup(auth, provider).catch(err => alert("ログイン失敗: " + err.message));
+  $("logoutBtn").onclick = () => signOut(auth);
+  $("addWelfit").onclick = () => openModal("welfit", null);
+  $("addExpert").onclick = () => openModal("expert", null);
+  $("modalForm").onsubmit = saveModal;
+  $("bookSearch").addEventListener("input", e => renderBookList(e.target.value));
+
+  $("addBookTitleBtn").onclick = () => {
+    const row = appendBookTitleRow("");
+    row.querySelector("input").focus();
+    checkModalDup();
+  };
+
+  $("welfitBudgetInput").addEventListener("change", () => saveBudget("welfit"));
+  $("welfitBudgetInput").addEventListener("blur", () => saveBudget("welfit"));
+  $("expertBudgetInput").addEventListener("change", () => saveBudget("expert"));
+  $("expertBudgetInput").addEventListener("blur", () => saveBudget("expert"));
+
+  $("f_receipt").addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      alert("画像サイズが大きすぎます（20MB以下にしてください）");
+      e.target.value = "";
+      return;
+    }
+    state.pendingReceiptFile = file;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      $("f_receiptImg").src = ev.target.result;
+      $("f_receiptPreview").classList.remove("hidden");
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $("f_removeReceipt").onclick = () => {
+    state.pendingReceiptFile = null;
+    $("f_receipt").value = "";
+    $("f_existingReceiptData").value = "";
+    $("f_receiptPreview").classList.add("hidden");
+  };
+
+  document.body.addEventListener("click", e => {
+    const btn = e.target.closest("button[data-act], img[data-act]");
+    if (!btn) return;
+    const { act, kind, id, year } = btn.dataset;
+    if (act === "view") {
+      let row;
+      if (kind === "expert-all") {
+        row = state.expertAll.find(r => r.id === id && r.year === year);
+      } else {
+        const list = kind === "welfit" ? state.welfit : state.expert;
+        row = list.find(r => r.id === id);
+      }
+      if (row?.receiptData) openImageView(row.receiptData);
+      return;
+    }
+    if (act === "toggle") { toggleApplied(kind, id); return; }
+    const list = kind === "welfit" ? state.welfit : state.expert;
+    const row = list.find(r => r.id === id);
+    if (act === "edit") openModal(kind, row);
+    if (act === "del") deleteRow(kind, id);
+  });
+
+  window.addEventListener("click", e => {
+    if (e.target.id === "modal") closeModal();
+    if (e.target.id === "imageModal") closeImageModal();
+  });
+}
+
+onAuthStateChanged(auth, async user => {
+  state.user = user;
+  if (user) {
+    $("userInfo").textContent = "👤 " + (user.displayName || user.email || "ログイン中");
+    $("loginBtn").classList.add("hidden");
+    $("logoutBtn").classList.remove("hidden");
+    $("signinNotice").classList.add("hidden");
+    $("appBody").classList.remove("hidden");
+    await loadAll();
+  } else {
+    $("userInfo").textContent = "未ログイン";
+    $("loginBtn").classList.remove("hidden");
+    $("logoutBtn").classList.add("hidden");
+    $("signinNotice").classList.remove("hidden");
+    $("appBody").classList.add("hidden");
+  }
+});
+
+buildYearSelector();
+setupTabs();
+bindEvents();
+// 初期表示（未ログイン時の空状態）
+$("welfitBudgetInput").value = state.budgets.welfit;
+$("expertBudgetInput").value = state.budgets.expert;
+</script>
 </body>
 </html>
