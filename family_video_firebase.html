@@ -422,8 +422,13 @@ async function backfillThumbnails() {
                 }
             }
         }
-        // 走査中に同期で別データへ差し替わっていなければ保存
-        if (changed && videoData === target) await saveToFirestore();
+        // 走査中に同期で別データへ差し替わっていなければ反映
+        if (changed && videoData === target) {
+            backfilling = false;       // 再描画内の二重起動を防ぎつつ先に解放
+            renderContent();           // 取得した videoId を即座に画面へ反映
+            saveToFirestore();         // Firestoreへキャッシュ（失敗しても表示は維持）
+            return;
+        }
     } finally {
         backfilling = false;
     }
