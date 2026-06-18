@@ -396,7 +396,7 @@ function renderContent() {
         const d = videoData[y] || [];
         h += `<div class="page year-${y}" id="page-${y}">
             <div class="year-page-header">
-                <button class="back-button" onclick="showPage('home')"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>戻る</button>
+                <button class="back-button" onclick="history.back()"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>戻る</button>
                 <div class="year-page-title"><div class="year-badge">${y}</div><div class="year-page-info"><h1>${y}年の思い出</h1><p>動画コレクション</p></div></div>
             </div>`;
 
@@ -467,10 +467,26 @@ async function backfillThumbnails() {
 }
 
 // ページ切替
-function showPage(id) {
-    document.getElementById('navDrawer').classList.remove('open');
+// ---- 表示状態の判定ヘルパー ----
+function isModalOpen() { return document.getElementById('addModal').classList.contains('open'); }
+function isNavOpen() { return document.getElementById('navDrawer').classList.contains('open'); }
+function currentPageId() {
+    const active = document.querySelector('.page.active');
+    return active ? active.id.replace('page-', '') : 'home';
+}
+function closeNavDOM() { document.getElementById('navDrawer').classList.remove('open'); }
+function closeModalDOM() {
+    document.getElementById('addModal').classList.remove('open');
+    editContext = null;
+}
+
+// ページ表示（DOMのみ。履歴は操作しない）
+function displayPage(id) {
+    let el = document.getElementById(`page-${id}`);
+    if (!el) { id = 'home'; el = document.getElementById('page-home'); }
+    closeNavDOM();
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(`page-${id}`).classList.add('active');
+    el.classList.add('active');
     document.querySelectorAll('.nav-drawer-item').forEach(i => {
         i.classList.remove('active');
         if (i.dataset.page === id) i.classList.add('active');
@@ -478,9 +494,34 @@ function showPage(id) {
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
-function toggleMenu() {
-    document.getElementById('navDrawer').classList.toggle('open');
+// ページ遷移（履歴に積む。スマホの戻るで前の画面に戻れるようにする）
+function showPage(id) {
+    displayPage(id);
+    if (history.state && history.state.overlay) {
+        // ナビ等のオーバーレイから遷移：その履歴をページ履歴へ置換
+        history.replaceState({page: id}, '');
+    } else {
+        history.pushState({page: id}, '');
+    }
 }
+
+function toggleMenu() {
+    if (isNavOpen()) {
+        if (history.state && history.state.overlay === 'nav') history.back();
+        else closeNavDOM();
+    } else {
+        document.getElementById('navDrawer').classList.add('open');
+        history.pushState({page: currentPageId(), overlay: 'nav'}, '');
+    }
+}
+
+// スマホ/ブラウザの戻るボタン：オーバーレイを閉じる → ページを戻す
+window.addEventListener('popstate', function(e) {
+    const st = e.state || {page: 'home'};
+    if (isModalOpen() && st.overlay !== 'modal') { closeModalDOM(); return; }
+    if (isNavOpen() && st.overlay !== 'nav') { closeNavDOM(); return; }
+    displayPage(st.page || 'home');
+});
 
 // 送信ボタン共通ハンドラ（追加 or 編集保存）
 function submitModal() {
@@ -501,6 +542,7 @@ function openAddModal() {
     parsedUrl = null;
     document.getElementById('videoYear').value = new Date().getFullYear();
     document.getElementById('videoMonth').value = `${new Date().getMonth()+1}月`;
+    history.pushState({page: currentPageId(), overlay: 'modal'}, '');
 }
 
 // 編集モーダル（追加モーダルを流用し、既存情報を読み込む）
@@ -531,11 +573,16 @@ function openEditModal(e, y, m, i) {
         document.getElementById('previewArea').style.display = 'none';
     }
     updateAddButton();
+    history.pushState({page: currentPageId(), overlay: 'modal'}, '');
 }
 
+// モーダルを閉じる（戻るボタンと履歴の整合を取る）
 function closeAddModal() {
-    document.getElementById('addModal').classList.remove('open');
-    editContext = null;
+    if (history.state && history.state.overlay === 'modal') {
+        history.back();   // popstate が closeModalDOM を呼ぶ
+    } else {
+        closeModalDOM();
+    }
 }
 
 document.getElementById('youtubeUrl').addEventListener('input', async function() {
@@ -608,8 +655,10 @@ async function addVideo() {
     
     await saveToFirestore();
     showToast('動画を追加しました');
-    closeAddModal();
-    showPage(year);
+    // モーダル用の履歴を対象ページの履歴に置換して遷移
+    closeModalDOM();
+    history.replaceState({page: year}, '');
+    displayPage(year);
 }
 
 // 編集内容を保存（年・月の変更は項目を移動）
@@ -647,8 +696,10 @@ async function saveEdit() {
     editContext = null;
     await saveToFirestore();
     showToast('動画を更新しました');
-    closeAddModal();
-    showPage(ny);
+    // モーダル用の履歴を対象ページの履歴に置換して遷移
+    closeModalDOM();
+    history.replaceState({page: ny}, '');
+    displayPage(ny);
 }
 
 function toggleEditMode() {
@@ -676,6 +727,7 @@ async function deleteVideo(e, y, m, i) {
 }
 
 // 初期化
+history.replaceState({page: 'home'}, ''); // 戻るボタンの基点
 renderNav();
 startRealtimeSync();
 </script>
