@@ -206,6 +206,42 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+// YouTube Data API キー（再生リストのサムネイル取得用）
+// 取得手順: Google Cloud Console → プロジェクト「home-video-d81f0」を選択
+//   →「APIとサービス」で「YouTube Data API v3」を有効化
+//   →「認証情報」→「認証情報を作成」→「APIキー」→ 生成された値を下に貼り付け
+//   （HTTPリファラ制限をかけて公開ページからのみ使えるようにするのを推奨）
+const YOUTUBE_API_KEY = "AIzaSyAKELxV2i9fShcrilJGGtYVmsT-zBrGYzg";
+
+function hasYouTubeApiKey() {
+    return YOUTUBE_API_KEY && YOUTUBE_API_KEY !== "YOUR_YOUTUBE_DATA_API_KEY";
+}
+
+// 再生リストの先頭動画IDを取得（サムネイルは先頭動画のものを使う）
+const playlistVideoIdCache = {};   // playlistId -> videoId（取得成功分）
+const failedPlaylists = new Set(); // 解決できなかった playlistId（再試行を避ける）
+async function fetchFirstVideoId(playlistId) {
+    if (!playlistId || !hasYouTubeApiKey()) return null;
+    if (playlistVideoIdCache[playlistId]) return playlistVideoIdCache[playlistId];
+    try {
+        const url = `https://www.googleapis.com/youtube/v3/playlistItems`
+            + `?part=contentDetails&maxResults=1&playlistId=${encodeURIComponent(playlistId)}`
+            + `&key=${YOUTUBE_API_KEY}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const vid = json.items && json.items[0] && json.items[0].contentDetails
+            && json.items[0].contentDetails.videoId;
+        if (vid) {
+            playlistVideoIdCache[playlistId] = vid;
+            return vid;
+        }
+    } catch (e) {
+        console.warn('再生リストのサムネイル取得に失敗:', playlistId, e);
+    }
+    return null;
+}
+
 // 初期データ
 const defaultData = {
     "2026":[{month:"2月",emoji:"❄️",videos:[{title:"塩南地区選抜 BREXエキシビションマッチ",description:"塩南地区選抜チームによるBREXとのエキシビションマッチ",date:"2026年2月1日",playlistId:"PLpQLKhKt0bVLSCni2y171DU9HDPh3ADrO",videoId:""}]}],
@@ -341,11 +377,13 @@ function renderContent() {
                 h += `<div class="video-section"><div class="month-title"><h3>${md.emoji} ${md.month}</h3><span class="month-count">${md.videos.length}件</span></div>`;
                 md.videos.forEach((v, i) => {
                     const pUrl = `https://www.youtube.com/playlist?list=${v.playlistId}`;
-                    const tUrl = v.videoId ? `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg` : `https://i.ytimg.com/vi/${v.playlistId}/hqdefault.jpg`;
+                    // サムネイルは動画ID専用エンドポイント。videoId が無い場合は画像を出さず
+                    // backfillThumbnails() がAPIで先頭動画IDを補完してから再描画される
+                    const tUrl = v.videoId ? `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg` : '';
                     h += `<a href="${pUrl}" target="_blank" class="video-card">
                         <button class="delete-btn" onclick="deleteVideo(event,'${y}','${md.month}',${i})"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
                         <div class="video-thumbnail">
-                            <img src="${tUrl}" alt="${v.title}" onerror="this.style.display='none'">
+                            ${tUrl ? `<img src="${tUrl}" alt="${v.title}" onerror="this.style.display='none'">` : ''}
                             <div class="video-thumbnail-overlay"><div class="play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
                             <div class="playlist-tag"><svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>再生リスト</div>
                         </div>
@@ -360,6 +398,40 @@ function renderContent() {
 
     main.innerHTML = h;
     if (editMode) document.querySelectorAll('.page').forEach(p => p.classList.add('edit-mode'));
+
+    // videoId が未設定の再生リストはAPIで先頭動画IDを補完（既存データの救済）
+    backfillThumbnails();
+}
+
+// videoId が空の再生リストを走査し、APIで取得して保存（取得後は再描画でサムネが出る）
+let backfilling = false;
+async function backfillThumbnails() {
+    if (backfilling || !hasYouTubeApiKey()) return;
+    backfilling = true;
+    const target = videoData; // 走査開始時点のデータ参照を固定
+    let changed = false;
+    try {
+        for (const y of Object.keys(target)) {
+            for (const md of (target[y] || [])) {
+                for (const v of md.videos) {
+                    if (!v.videoId && v.playlistId && !failedPlaylists.has(v.playlistId)) {
+                        const vid = await fetchFirstVideoId(v.playlistId);
+                        if (vid) { v.videoId = vid; changed = true; }
+                        else { failedPlaylists.add(v.playlistId); }
+                    }
+                }
+            }
+        }
+        // 走査中に同期で別データへ差し替わっていなければ反映
+        if (changed && videoData === target) {
+            backfilling = false;       // 再描画内の二重起動を防ぎつつ先に解放
+            renderContent();           // 取得した videoId を即座に画面へ反映
+            saveToFirestore();         // Firestoreへキャッシュ（失敗しても表示は維持）
+            return;
+        }
+    } finally {
+        backfilling = false;
+    }
 }
 
 // ページ切替
@@ -397,19 +469,23 @@ function closeAddModal() {
     document.getElementById('addModal').classList.remove('open');
 }
 
-document.getElementById('youtubeUrl').addEventListener('input', function() {
+document.getElementById('youtubeUrl').addEventListener('input', async function() {
     const url = this.value.trim();
     parsedUrl = parseYouTubeUrl(url);
     if (parsedUrl.playlistId || parsedUrl.videoId) {
-        const tUrl = parsedUrl.videoId ? `https://i.ytimg.com/vi/${parsedUrl.videoId}/hqdefault.jpg` : null;
-        if (tUrl) {
-            document.getElementById('previewThumb').src = tUrl;
+        updateAddButton();
+        // 動画IDが無い再生リストURLでもAPIで先頭動画を引いてプレビュー表示
+        let vid = parsedUrl.videoId;
+        if (!vid && parsedUrl.playlistId) vid = await fetchFirstVideoId(parsedUrl.playlistId);
+        // 非同期取得中に入力が変わっていたら破棄
+        if (parseYouTubeUrl(this.value.trim()).playlistId !== parsedUrl.playlistId) return;
+        if (vid) {
+            document.getElementById('previewThumb').src = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
             document.getElementById('previewArea').style.display = 'block';
             document.getElementById('previewInfo').textContent = `再生リストID: ${parsedUrl.playlistId || 'なし'}`;
         } else {
             document.getElementById('previewArea').style.display = 'none';
         }
-        updateAddButton();
     } else {
         document.getElementById('previewArea').style.display = 'none';
         document.getElementById('addBtn').disabled = true;
@@ -438,7 +514,8 @@ async function addVideo() {
         description: desc,
         date,
         playlistId: parsedUrl.playlistId,
-        videoId: parsedUrl.videoId || ''
+        // 動画ID未指定の再生リストURLは先頭動画IDを取得して保存（サムネイル用）
+        videoId: parsedUrl.videoId || (await fetchFirstVideoId(parsedUrl.playlistId)) || ''
     };
     
     if (!videoData[year]) videoData[year] = [];
