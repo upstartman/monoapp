@@ -80,6 +80,9 @@
         .delete-btn { position:absolute; top:12px; left:12px; width:32px; height:32px; background:rgba(239,68,68,0.9); border:none; border-radius:8px; display:none; align-items:center; justify-content:center; cursor:pointer; z-index:10; }
         .delete-btn svg { width:18px; height:18px; fill:white; }
         .edit-mode .delete-btn { display:flex; }
+        .edit-btn { position:absolute; top:12px; left:52px; width:32px; height:32px; background:rgba(99,102,241,0.9); border:none; border-radius:8px; display:none; align-items:center; justify-content:center; cursor:pointer; z-index:10; }
+        .edit-btn svg { width:18px; height:18px; fill:white; }
+        .edit-mode .edit-btn { display:flex; }
         .empty-page { text-align:center; padding:60px 20px; }
         .empty-icon { width:64px; height:64px; margin:0 auto 20px; background:var(--glass); border-radius:50%; display:flex; align-items:center; justify-content:center; }
         .empty-icon svg { width:32px; height:32px; fill:var(--text-secondary); }
@@ -159,7 +162,7 @@
     <div class="modal" id="addModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>📹 動画を追加</h2>
+                <h2 id="modalTitle">📹 動画を追加</h2>
                 <button class="modal-close" onclick="closeAddModal()"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
             </div>
             <div class="modal-body">
@@ -179,12 +182,12 @@
                 <div class="form-group"><label>年度</label><select id="videoYear"></select></div>
                 <div class="form-group"><label>月</label><select id="videoMonth"><option value="1月">1月</option><option value="2月">2月</option><option value="3月">3月</option><option value="4月">4月</option><option value="5月">5月</option><option value="6月">6月</option><option value="7月">7月</option><option value="8月">8月</option><option value="9月">9月</option><option value="10月">10月</option><option value="11月">11月</option><option value="12月">12月</option></select></div>
                 <div class="form-group"><label>日付（任意）</label><input type="text" id="videoDate" placeholder="例: 2026年3月15日"></div>
-                <button class="btn btn-primary" id="addBtn" onclick="addVideo()" disabled><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>追加する</button>
-                <button class="btn btn-secondary" onclick="toggleEditMode()"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>動画を削除する</button>
+                <button class="btn btn-primary" id="addBtn" onclick="submitModal()" disabled><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>追加する</button>
+                <button class="btn btn-secondary" id="editModeBtn" onclick="toggleEditMode()"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>動画を編集・削除</button>
             </div>
         </div>
     </div>
-    <div class="edit-mode-banner" id="editBanner">🗑️ 削除モード<button onclick="toggleEditMode()">完了</button></div>
+    <div class="edit-mode-banner" id="editBanner">✏️ 編集モード（鉛筆=編集 / ゴミ箱=削除）<button onclick="toggleEditMode()">完了</button></div>
     <div class="toast" id="toast"></div>
 
     <!-- Firebase SDK -->
@@ -242,6 +245,29 @@ async function fetchFirstVideoId(playlistId) {
     return null;
 }
 
+// 再生リストのタイトルを取得（タイトル欄の自動入力用）
+const playlistTitleCache = {};
+async function fetchPlaylistTitle(playlistId) {
+    if (!playlistId || !hasYouTubeApiKey()) return null;
+    if (playlistTitleCache[playlistId]) return playlistTitleCache[playlistId];
+    try {
+        const url = `https://www.googleapis.com/youtube/v3/playlists`
+            + `?part=snippet&id=${encodeURIComponent(playlistId)}&key=${YOUTUBE_API_KEY}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const title = json.items && json.items[0] && json.items[0].snippet
+            && json.items[0].snippet.title;
+        if (title) {
+            playlistTitleCache[playlistId] = title;
+            return title;
+        }
+    } catch (e) {
+        console.warn('再生リストのタイトル取得に失敗:', playlistId, e);
+    }
+    return null;
+}
+
 // 初期データ
 const defaultData = {
     "2026":[{month:"2月",emoji:"❄️",videos:[{title:"塩南地区選抜 BREXエキシビションマッチ",description:"塩南地区選抜チームによるBREXとのエキシビションマッチ",date:"2026年2月1日",playlistId:"PLpQLKhKt0bVLSCni2y171DU9HDPh3ADrO",videoId:""}]}],
@@ -258,6 +284,7 @@ let videoData = {};
 let editMode = false;
 let parsedUrl = null;
 let unsubscribe = null;
+let editContext = null; // 編集中の項目 {year, month, index}。追加時は null
 
 // Toast表示
 function showToast(message, isError = false) {
@@ -382,6 +409,7 @@ function renderContent() {
                     const tUrl = v.videoId ? `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg` : '';
                     h += `<a href="${pUrl}" target="_blank" class="video-card">
                         <button class="delete-btn" onclick="deleteVideo(event,'${y}','${md.month}',${i})"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+                        <button class="edit-btn" onclick="openEditModal(event,'${y}','${md.month}',${i})"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
                         <div class="video-thumbnail">
                             ${tUrl ? `<img src="${tUrl}" alt="${v.title}" onerror="this.style.display='none'">` : ''}
                             <div class="video-thumbnail-overlay"><div class="play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
@@ -450,9 +478,18 @@ function toggleMenu() {
     document.getElementById('navDrawer').classList.toggle('open');
 }
 
+// 送信ボタン共通ハンドラ（追加 or 編集保存）
+function submitModal() {
+    return editContext ? saveEdit() : addVideo();
+}
+
 // 追加モーダル
 function openAddModal() {
+    editContext = null;
     document.getElementById('addModal').classList.add('open');
+    document.getElementById('modalTitle').textContent = '📹 動画を追加';
+    document.getElementById('addBtn').innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>追加する';
+    document.getElementById('editModeBtn').style.display = '';
     document.getElementById('youtubeUrl').value = '';
     document.getElementById('videoTitle').value = '';
     document.getElementById('videoDesc').value = '';
@@ -465,8 +502,43 @@ function openAddModal() {
     document.getElementById('videoMonth').value = `${new Date().getMonth()+1}月`;
 }
 
+// 編集モーダル（追加モーダルを流用し、既存情報を読み込む）
+function openEditModal(e, y, m, i) {
+    e.preventDefault();
+    e.stopPropagation();
+    const md = videoData[y] && videoData[y].find(x => x.month === m);
+    if (!md) return;
+    const v = md.videos[i];
+    if (!v) return;
+    editContext = { year: y, month: m, index: i };
+    document.getElementById('addModal').classList.add('open');
+    document.getElementById('modalTitle').textContent = '✏️ 動画を編集';
+    document.getElementById('addBtn').innerHTML = '<svg viewBox="0 0 24 24"><path d="M17 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>変更を保存';
+    document.getElementById('editModeBtn').style.display = 'none';
+    const ys = document.getElementById('videoYear');
+    ys.innerHTML = years.map(yy => `<option value="${yy}">${yy}年</option>`).join('');
+    document.getElementById('youtubeUrl').value = v.videoId
+        ? `https://www.youtube.com/watch?v=${v.videoId}&list=${v.playlistId}`
+        : `https://www.youtube.com/playlist?list=${v.playlistId}`;
+    document.getElementById('videoTitle').value = v.title || '';
+    document.getElementById('videoDesc').value = v.description || '';
+    document.getElementById('videoYear').value = y;
+    document.getElementById('videoMonth').value = m;
+    document.getElementById('videoDate').value = v.date || '';
+    parsedUrl = { playlistId: v.playlistId, videoId: v.videoId || '' };
+    if (v.videoId) {
+        document.getElementById('previewThumb').src = `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+        document.getElementById('previewArea').style.display = 'block';
+        document.getElementById('previewInfo').textContent = `再生リストID: ${v.playlistId}`;
+    } else {
+        document.getElementById('previewArea').style.display = 'none';
+    }
+    updateAddButton();
+}
+
 function closeAddModal() {
     document.getElementById('addModal').classList.remove('open');
+    editContext = null;
 }
 
 document.getElementById('youtubeUrl').addEventListener('input', async function() {
@@ -474,6 +546,18 @@ document.getElementById('youtubeUrl').addEventListener('input', async function()
     parsedUrl = parseYouTubeUrl(url);
     if (parsedUrl.playlistId || parsedUrl.videoId) {
         updateAddButton();
+        // 再生リストのタイトルを取得し、タイトル欄が空なら自動入力
+        if (parsedUrl.playlistId) {
+            const titleEl = document.getElementById('videoTitle');
+            if (!titleEl.value.trim()) {
+                const t = await fetchPlaylistTitle(parsedUrl.playlistId);
+                if (t && !titleEl.value.trim()
+                    && parseYouTubeUrl(this.value.trim()).playlistId === parsedUrl.playlistId) {
+                    titleEl.value = t;
+                    updateAddButton();
+                }
+            }
+        }
         // 動画IDが無い再生リストURLでもAPIで先頭動画を引いてプレビュー表示
         let vid = parsedUrl.videoId;
         if (!vid && parsedUrl.playlistId) vid = await fetchFirstVideoId(parsedUrl.playlistId);
@@ -532,6 +616,46 @@ async function addVideo() {
     showToast('動画を追加しました');
     closeAddModal();
     showPage(year);
+}
+
+// 編集内容を保存（年・月の変更は項目を移動）
+async function saveEdit() {
+    if (!editContext || !parsedUrl || !parsedUrl.playlistId) return;
+    const { year: oy, month: om, index: oi } = editContext;
+    const oldMd = videoData[oy] && videoData[oy].find(x => x.month === om);
+    if (!oldMd || !oldMd.videos[oi]) return;
+    const orig = oldMd.videos[oi];
+
+    const title = document.getElementById('videoTitle').value.trim();
+    const desc = document.getElementById('videoDesc').value.trim();
+    const ny = document.getElementById('videoYear').value;
+    const nm = document.getElementById('videoMonth').value;
+    const date = document.getElementById('videoDate').value.trim();
+    const videoId = parsedUrl.videoId || orig.videoId
+        || (await fetchFirstVideoId(parsedUrl.playlistId)) || '';
+
+    const updated = { title, description: desc, date, playlistId: parsedUrl.playlistId, videoId };
+
+    // 元の場所から削除（空になった月グループも除去）
+    oldMd.videos.splice(oi, 1);
+    if (oldMd.videos.length === 0) {
+        videoData[oy].splice(videoData[oy].indexOf(oldMd), 1);
+    }
+    // 新しい年・月に挿入
+    if (!videoData[ny]) videoData[ny] = [];
+    let md = videoData[ny].find(m => m.month === nm);
+    if (!md) {
+        md = { month: nm, emoji: monthEmojis[nm] || "📅", videos: [] };
+        videoData[ny].push(md);
+        videoData[ny].sort((a, b) => parseInt(b.month) - parseInt(a.month));
+    }
+    md.videos.push(updated);
+
+    editContext = null;
+    await saveToFirestore();
+    showToast('動画を更新しました');
+    closeAddModal();
+    showPage(ny);
 }
 
 function toggleEditMode() {
