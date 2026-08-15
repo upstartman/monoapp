@@ -115,6 +115,8 @@
   }
   .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
   .btn-block { display: block; width: 100%; }
+  /* 申請追加ボタン（ポイントカード直下・リストの上） */
+  .btn-add { margin-bottom: 12px; }
 
   /* ===== サインインカード ===== */
   .signin-card {
@@ -483,8 +485,8 @@
           </span>
         </div>
       </div>
+      <button id="addWelfit" class="btn btn-primary btn-block btn-add">+ 申請を追加</button>
       <div class="list" id="welfitList"></div>
-      <button id="addWelfit" class="btn btn-primary btn-block">+ 申請を追加</button>
     </section>
 
     <!-- エキスパート基金 タブ -->
@@ -502,8 +504,8 @@
           </span>
         </div>
       </div>
+      <button id="addExpert" class="btn btn-primary btn-block btn-add">+ 申請を追加</button>
       <div class="list" id="expertList"></div>
-      <button id="addExpert" class="btn btn-primary btn-block">+ 申請を追加</button>
 
       <div class="dup-section">
         <div class="section-title">
