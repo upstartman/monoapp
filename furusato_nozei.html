@@ -99,9 +99,15 @@
     border: 1px solid var(--border);
   }
   .btn-secondary:hover { background: rgba(255,255,255,.12); }
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px dashed var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
   .btn-block { display: block; width: 100%; }
   /* 追加ボタンは枠カードの直下・リストの上に固定 */
-  .btn-add { margin-bottom: 12px; }
+  .add-row {
+    display: grid; grid-template-columns: 1fr auto;
+    gap: 8px; margin-bottom: 12px;
+  }
+  .add-row .btn-ghost { padding: 13px 14px; font-size: 14px; }
 
   /* ===== サインインカード ===== */
   .signin-card {
@@ -256,6 +262,14 @@
   }
   .field { margin-bottom: 14px; }
   .field label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; font-weight: 600; }
+  .field textarea {
+    width: 100%; padding: 12px 14px;
+    background: rgba(255,255,255,.04); border: 1px solid var(--border);
+    color: var(--text); border-radius: 10px;
+    font-family: var(--font-mono); font-size: 13px; line-height: 1.8;
+    resize: vertical;
+  }
+  .field textarea:focus { outline: none; border-color: var(--accent); }
   .field input, .field select {
     width: 100%; padding: 12px 14px;
     background: rgba(255,255,255,.04); border: 1px solid var(--border);
@@ -315,7 +329,10 @@
       </div>
     </div>
 
-    <button id="addItem" class="btn btn-primary btn-block btn-add">+ 品物を追加</button>
+    <div class="add-row">
+      <button id="addItem" class="btn btn-primary btn-block">+ 品物を追加</button>
+      <button id="bulkBtn" class="btn btn-ghost" title="スプレッドシートから貼り付けて一括登録">📋 取り込み</button>
+    </div>
 
     <div class="table">
       <div class="tr tr-head">
@@ -376,13 +393,40 @@
   </div>
 </div>
 
+<!-- まとめて取り込みモーダル -->
+<div id="bulkModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>まとめて取り込み</h2>
+      <button type="button" class="close-btn" onclick="closeBulkModal()">×</button>
+    </div>
+    <form id="bulkForm">
+      <div class="field">
+        <label>1行に「品物 / 金額 / 発送月」</label>
+        <textarea id="bulkText" rows="9" placeholder="いちご	12000	2026/2
+うどん	18000	2026/3
+メロン"></textarea>
+        <div class="field-hint" style="margin-top:6px;">
+          スプレッドシートの範囲をそのままコピーして貼り付けられます（タブ・カンマ・スペース区切りに対応）。見出し行や合計行、金額だけのメモ行は自動で除きます。<br />
+          「2026/8-11」のような期間は開始月（8月）として取り込みます。購入日は空欄になるので、必要な行だけ後から入力してください。
+        </div>
+      </div>
+      <div class="field-hint" id="bulkPreview" style="margin-top:-6px;"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeBulkModal()">キャンセル</button>
+        <button type="submit" class="btn btn-primary" id="bulkSaveBtn">取り込む</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // Wel-fit管理アプリと同じFirebaseプロジェクトを共有（同じGoogleアカウントでログイン可）
@@ -593,6 +637,138 @@ async function saveModal(e) {
   }
 }
 
+// ===== まとめて取り込み =====
+window.closeBulkModal = () => $("bulkModal").classList.remove("show");
+
+const SKIP_NAMES = ["品物", "合計", "小計", "計", "総計", "名前", "返礼品"];
+
+// カンマ区切り1行を分割（"¥10,000" のような引用符付きセルに対応）
+function splitCsvLine(line) {
+  const out = [];
+  let cur = "", quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) {
+      if (c !== '"') cur += c;
+      else if (line[i + 1] === '"') { cur += '"'; i++; }
+      else quoted = false;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+// 引用符なしの「¥10,000」は列がずれるため、数字と3桁の断片を金額として結合し直す
+function mergeThousands(cols) {
+  const isNum = s => /^[¥￥]?[\d０-９]+$/.test(String(s).trim());
+  const is3 = s => /^[\d０-９]{3}$/.test(String(s).trim());
+  const out = [...cols];
+  let i = 1;
+  while (out.length > 3 && i < out.length - 1) {
+    if (isNum(out[i]) && is3(out[i + 1])) out.splice(i, 2, out[i].trim() + out[i + 1].trim());
+    else i++;
+  }
+  return out;
+}
+
+// 1行を {name, amount, ship} に。タブ/カンマ区切り優先、なければ末尾の金額・発送月を切り出す
+function parseBulkLine(raw) {
+  const line = String(raw).replace(/^﻿/, "").replace(/\s+$/, "");
+  if (!line.trim()) return null;
+  let cols;
+  if (line.includes("\t")) cols = line.split("\t");
+  else if (line.includes(",")) cols = mergeThousands(splitCsvLine(line));
+  else {
+    const m = line.trim().match(/^(.+?)[\s　]+([¥￥]?[\d０-９,，]+)(?:[\s　]+(\S+))?$/);
+    cols = m ? [m[1], m[2], m[3] || ""] : [line];
+  }
+  const name = String(cols[0] || "").trim();
+  if (!name || SKIP_NAMES.includes(name)) return null;
+  const amtRaw = String(cols[1] || "").normalize("NFKC").replace(/[,，、¥￥円\s]/g, "");
+  const amtNum = amtRaw.match(/\d+/);
+  const p = parseShip(cols[2]);
+  return {
+    name,
+    amount: amtNum ? Number(amtNum[0]) : 0,
+    ship: p ? `${p.y}/${p.m}` : ""
+  };
+}
+
+const bulkKey = r => `${r.name}|${r.amount}|${r.ship}`;
+
+// 貼り付け内容を解析。既に同じ内容の行があるものは重複として分ける
+function analyzeBulk() {
+  const parsed = $("bulkText").value.split(/\r?\n/).map(parseBulkLine).filter(Boolean);
+  const existing = new Set(state.items.map(bulkKey));
+  const seen = new Set();
+  const rows = [], dups = [];
+  for (const r of parsed) {
+    const k = bulkKey(r);
+    if (existing.has(k) || seen.has(k)) { dups.push(r); continue; }
+    seen.add(k);
+    rows.push(r);
+  }
+  return { rows, dups };
+}
+
+function updateBulkPreview() {
+  const { rows, dups } = analyzeBulk();
+  const sum = rows.reduce((s, r) => s + r.amount, 0);
+  const el = $("bulkPreview");
+  if (!rows.length && !dups.length) { el.innerHTML = ""; return; }
+  const parts = [`取り込み <b>${rows.length}件</b>（金額合計 <b>${fmtYen(sum)}</b>）`];
+  if (dups.length) parts.push(`同じ内容の${dups.length}件はスキップします`);
+  const noAmount = rows.filter(r => !r.amount).length;
+  if (noAmount) parts.push(`金額なし ${noAmount}件`);
+  el.innerHTML = parts.join(" ／ ");
+}
+
+function openBulkModal() {
+  $("bulkText").value = "";
+  $("bulkPreview").innerHTML = "";
+  $("bulkModal").classList.add("show");
+  setTimeout(() => $("bulkText").focus(), 50);
+}
+
+async function saveBulk(e) {
+  e.preventDefault();
+  if (!state.user) return;
+  const { rows, dups } = analyzeBulk();
+  if (!rows.length) {
+    alert(dups.length ? "すべて既に登録済みの内容でした。" : "取り込める行が見つかりませんでした。\n1行に「品物 金額 発送月」の形式で貼り付けてください。");
+    return;
+  }
+  if (!confirm(`${rows.length}件を${state.year}年に追加します。よろしいですか？`)) return;
+  const btn = $("bulkSaveBtn");
+  btn.disabled = true; btn.textContent = "取り込み中…";
+  try {
+    const uid = state.user.uid;
+    await setDoc(yearDocRef(uid, state.year), { year: state.year }, { merge: true });
+    const col = itemsCol(uid, state.year);
+    const batch = writeBatch(db);
+    for (const r of rows) {
+      batch.set(doc(col), {
+        name: r.name,
+        buyDate: "",
+        amount: r.amount,
+        ship: r.ship,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+    await batch.commit();
+    closeBulkModal();
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    alert("取り込み失敗: " + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "取り込む";
+  }
+}
+
 async function deleteRow(id) {
   const row = state.items.find(r => r.id === id);
   if (!confirm(`「${row?.name || ""}」を削除しますか？`)) return;
@@ -625,6 +801,9 @@ function bindEvents() {
   $("logoutBtn").onclick = () => signOut(auth);
   $("addItem").onclick = () => openModal(null);
   $("modalForm").onsubmit = saveModal;
+  $("bulkBtn").onclick = openBulkModal;
+  $("bulkForm").onsubmit = saveBulk;
+  $("bulkText").addEventListener("input", updateBulkPreview);
 
   $("limitInput").addEventListener("change", saveLimit);
   $("limitInput").addEventListener("blur", saveLimit);
@@ -636,7 +815,10 @@ function bindEvents() {
     if (act === "del") { deleteRow(id); return; }
     if (act === "edit") { openModal(state.items.find(r => r.id === id)); return; }
   });
-  window.addEventListener("click", e => { if (e.target.id === "modal") closeModal(); });
+  window.addEventListener("click", e => {
+    if (e.target.id === "modal") closeModal();
+    if (e.target.id === "bulkModal") closeBulkModal();
+  });
 }
 
 onAuthStateChanged(auth, async user => {
