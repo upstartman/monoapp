@@ -23,6 +23,7 @@
     --good: #4cd6a0;
     --bad: #ff6b6b;
     --gradient: linear-gradient(135deg, #ff9a62 0%, #ffc857 100%);
+    color-scheme: dark;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -177,9 +178,12 @@
     overflow: hidden; margin-bottom: 12px;
   }
   .tr {
-    display: grid; grid-template-columns: 1fr 82px 92px 30px;
+    display: grid; grid-template-columns: 1fr 52px 88px 62px 26px;
     gap: 8px; align-items: center;
     padding: 11px 14px;
+  }
+  @media (max-width: 400px) {
+    .tr { grid-template-columns: 1fr 46px 80px 56px 24px; gap: 6px; padding: 11px 10px; }
   }
   .tr-head {
     font-size: 11px; font-weight: 700; color: var(--text-dim);
@@ -196,15 +200,19 @@
     font-size: 15px; font-weight: 600;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  .tr .dt {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: rgba(168,172,204,.8); text-align: right; font-variant-numeric: tabular-nums;
+  }
   .tr .mo {
-    font-family: var(--font-mono); font-size: 13px; font-weight: 600;
-    color: var(--text-dim); text-align: right; font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+    color: var(--text); text-align: right; font-variant-numeric: tabular-nums;
   }
   .tr .am {
     font-family: var(--font-mono); font-size: 15px; font-weight: 700;
     text-align: right; font-variant-numeric: tabular-nums;
   }
-  .tr .mo.none, .tr .am.none { color: rgba(168,172,204,.5); font-weight: 500; }
+  .tr .dt.none, .tr .mo.none, .tr .am.none { color: rgba(168,172,204,.45); font-weight: 500; }
   .del {
     appearance: none; background: transparent; border: none;
     color: rgba(168,172,204,.45); cursor: pointer;
@@ -248,14 +256,14 @@
   }
   .field { margin-bottom: 14px; }
   .field label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; font-weight: 600; }
-  .field input {
+  .field input, .field select {
     width: 100%; padding: 12px 14px;
     background: rgba(255,255,255,.04); border: 1px solid var(--border);
     color: var(--text); border-radius: 10px;
     font-size: 15px; font-family: inherit;
   }
-  .field input[type="number"] { font-family: var(--font-mono); font-weight: 600; }
-  .field input:focus { outline: none; border-color: var(--accent); }
+  .field input[type="number"], .field input[type="date"] { font-family: var(--font-mono); font-weight: 600; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .field-hint { margin-top: -4px; margin-bottom: 14px; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
   .field-hint b { font-family: var(--font-mono); font-weight: 700; margin-left: 4px; }
@@ -312,15 +320,17 @@
     <div class="table">
       <div class="tr tr-head">
         <div>品物</div>
-        <div class="r">発送月</div>
+        <div class="r">購入日</div>
         <div class="r">金額</div>
+        <div class="r">発送月</div>
         <div></div>
       </div>
       <div id="itemRows"></div>
       <div class="tr tr-foot hidden" id="footRow">
         <div class="nm">合計 <span id="countValue"></span></div>
-        <div class="mo"></div>
+        <div class="dt"></div>
         <div class="am" id="footTotal">¥0</div>
+        <div class="mo"></div>
         <div></div>
       </div>
     </div>
@@ -342,11 +352,18 @@
       </div>
 
       <div class="field-row">
+        <div class="field"><label>購入日</label>
+          <input type="date" id="f_buyDate" />
+        </div>
         <div class="field"><label>金額</label>
           <input type="number" id="f_amount" min="0" step="1000" placeholder="12000" />
         </div>
-        <div class="field"><label>発送月</label>
-          <input type="text" id="f_ship" placeholder="例: 2026/2" />
+      </div>
+
+      <div class="field"><label>発送月</label>
+        <div class="field-row">
+          <select id="f_shipYear"></select>
+          <select id="f_shipMonth"></select>
         </div>
       </div>
       <div class="field-hint" id="f_remainHint"></div>
@@ -399,17 +416,36 @@ const escapeHtml = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","
 const yearDocRef = (uid, year) => doc(db, "users", uid, "furusato", year);
 const itemsCol = (uid, year) => collection(db, "users", uid, "furusato", year, "items");
 
-// 「2026/2」「2026/8-11」などから並べ替え用のキー(YYYYMM)を作る。判定できなければ末尾へ
-function shipSortKey(ship) {
-  const m = String(ship || "").normalize("NFKC").match(/(\d{4})\s*[\/\-年.]\s*(\d{1,2})/);
-  if (m) return Number(m[1]) * 100 + Number(m[2]);
-  const only = String(ship || "").normalize("NFKC").match(/^\s*(\d{1,2})\s*月?\s*$/);
-  if (only) return Number(state.year) * 100 + Number(only[1]);
-  return Number.MAX_SAFE_INTEGER;
+const YEAR_MIN = 2022, YEAR_MAX = 2030;
+
+// 発送月「2026/2」を {y, m} に。旧データの「2026/8-11」「2026年2月」等も読み取れる
+function parseShip(ship) {
+  const s = String(ship || "").normalize("NFKC");
+  const m = s.match(/(\d{4})\s*[\/\-年.]\s*(\d{1,2})/);
+  if (m) return { y: Number(m[1]), m: Number(m[2]) };
+  const only = s.match(/^\s*(\d{1,2})\s*月?\s*$/);
+  if (only) return { y: Number(state.year), m: Number(only[1]) };
+  return null;
 }
+// 並べ替え用キー(YYYYMM)。未定はnull（常に末尾）
+const shipSortKey = ship => { const p = parseShip(ship); return p ? p.y * 100 + p.m : null; };
+// 選択中の年と同じ年なら「2月」、違う年なら「2027/1」と表示
+function shipLabel(ship) {
+  const p = parseShip(ship);
+  if (!p) return "";
+  return p.y === Number(state.year) ? `${p.m}月` : `${p.y}/${p.m}`;
+}
+// 購入日 2026-08-16 → 8/16
+function buyLabel(d) {
+  const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${Number(m[2])}/${Number(m[3])}` : "";
+}
+const todayLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 function buildYearSelector() {
-  const YEAR_MIN = 2022, YEAR_MAX = 2030;
   const cur = Number(state.year);
   if (!(cur >= YEAR_MIN && cur <= YEAR_MAX)) {
     state.year = String(Math.min(YEAR_MAX, Math.max(YEAR_MIN, new Date().getFullYear())));
@@ -421,6 +457,16 @@ function buildYearSelector() {
   }
   sel.innerHTML = html.join("");
   sel.onchange = async () => { state.year = sel.value; await loadAll(); };
+}
+
+// 発送月の年・月プルダウン（年は翌年まで選べるようにする）
+function buildShipSelects() {
+  const ys = [];
+  for (let y = YEAR_MIN; y <= YEAR_MAX + 1; y++) ys.push(`<option value="${y}">${y}年</option>`);
+  $("f_shipYear").innerHTML = ys.join("");
+  const ms = [`<option value="">未定</option>`];
+  for (let m = 1; m <= 12; m++) ms.push(`<option value="${m}">${m}月</option>`);
+  $("f_shipMonth").innerHTML = ms.join("");
 }
 
 async function loadAll() {
@@ -450,9 +496,14 @@ function render() {
   bar.style.width = (state.limit > 0 ? Math.min(100, (used / state.limit) * 100) : 0) + "%";
   bar.classList.toggle("over", remain < 0);
 
+  // 発送月の降順（新しい月が上）。未定は常に末尾、同月内は購入日の新しい順
   const rows = [...state.items].sort((a, b) => {
     const ka = shipSortKey(a.ship), kb = shipSortKey(b.ship);
-    if (ka !== kb) return ka - kb;
+    if (ka === null && kb !== null) return 1;
+    if (kb === null && ka !== null) return -1;
+    if (ka !== null && kb !== null && ka !== kb) return kb - ka;
+    const d = String(b.buyDate || "").localeCompare(String(a.buyDate || ""));
+    if (d !== 0) return d;
     return String(a.name || "").localeCompare(String(b.name || ""), "ja");
   });
 
@@ -460,14 +511,17 @@ function render() {
   body.innerHTML = rows.length ? "" : `<div class="empty">まだ品物が登録されていません</div>`;
   for (const r of rows) {
     const amount = Number(r.amount || 0);
+    const buy = buyLabel(r.buyDate);
+    const ship = shipLabel(r.ship);
     const el = document.createElement("div");
     el.className = "tr tr-item";
     el.dataset.act = "edit";
     el.dataset.id = r.id;
     el.innerHTML = `
       <div class="nm">${escapeHtml(r.name || "")}</div>
-      <div class="mo ${r.ship ? "" : "none"}">${escapeHtml(r.ship || "—")}</div>
+      <div class="dt ${buy ? "" : "none"}">${escapeHtml(buy || "—")}</div>
       <div class="am ${amount ? "" : "none"}">${amount ? fmtYen(amount) : "—"}</div>
+      <div class="mo ${ship ? "" : "none"}">${escapeHtml(ship || "—")}</div>
       <button type="button" class="del" data-act="del" data-id="${r.id}" title="削除">×</button>`;
     body.appendChild(el);
   }
@@ -485,7 +539,11 @@ function openModal(row) {
   $("modalTitle").textContent = row ? "品物を編集" : "品物を追加";
   $("f_name").value = row?.name || "";
   $("f_amount").value = row?.amount || "";
-  $("f_ship").value = row?.ship || "";
+  // 購入日は追加時に今日の日付を自動で入れる（必要なら変更可）
+  $("f_buyDate").value = row ? (row.buyDate || "") : todayLocal();
+  const p = row ? parseShip(row.ship) : null;
+  $("f_shipYear").value = String(p ? p.y : state.year);
+  $("f_shipMonth").value = p ? String(p.m) : "";
   updateRemainHint();
   $("modal").classList.add("show");
   if (!row) setTimeout(() => $("f_name").focus(), 50);
@@ -510,10 +568,12 @@ async function saveModal(e) {
   try {
     const uid = state.user.uid;
     const id = $("f_id").value;
+    const month = $("f_shipMonth").value;
     const data = {
       name: $("f_name").value.trim(),
+      buyDate: $("f_buyDate").value || "",
       amount: Number($("f_amount").value || 0),
-      ship: $("f_ship").value.trim(),
+      ship: month ? `${$("f_shipYear").value}/${month}` : "",
       updatedAt: serverTimestamp()
     };
     await setDoc(yearDocRef(uid, state.year), { year: state.year }, { merge: true });
@@ -601,6 +661,7 @@ onAuthStateChanged(auth, async user => {
 });
 
 buildYearSelector();
+buildShipSelects();
 bindEvents();
 $("limitInput").value = state.limit;
 </script>
