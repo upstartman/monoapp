@@ -184,12 +184,12 @@
     overflow: hidden; margin-bottom: 12px;
   }
   .tr {
-    display: grid; grid-template-columns: 1fr 52px 88px 62px 26px;
-    gap: 8px; align-items: center;
+    display: grid; grid-template-columns: 1fr 48px 82px 56px 30px 26px;
+    gap: 7px; align-items: center;
     padding: 11px 14px;
   }
   @media (max-width: 400px) {
-    .tr { grid-template-columns: 1fr 46px 80px 56px 24px; gap: 6px; padding: 11px 10px; }
+    .tr { grid-template-columns: 1fr 42px 74px 50px 28px 22px; gap: 5px; padding: 11px 10px; }
   }
   .tr-head {
     font-size: 11px; font-weight: 700; color: var(--text-dim);
@@ -198,6 +198,7 @@
     border-bottom: 1px solid var(--border);
   }
   .tr-head .r { text-align: right; }
+  .tr-head .c { text-align: center; }
   .tr-item { cursor: pointer; transition: background .12s; }
   .tr-item + .tr-item { border-top: 1px solid rgba(255,255,255,.06); }
   .tr-item:hover { background: rgba(255,255,255,.05); }
@@ -219,6 +220,19 @@
     text-align: right; font-variant-numeric: tabular-nums;
   }
   .tr .dt.none, .tr .mo.none, .tr .am.none { color: rgba(168,172,204,.45); font-weight: 500; }
+  .tr .ck { display: grid; place-items: center; }
+  /* 到着チェック */
+  .chk {
+    appearance: none; background: transparent; cursor: pointer;
+    width: 24px; height: 24px; border-radius: 7px; padding: 0;
+    border: 1.5px solid rgba(168,172,204,.45);
+    color: transparent; font-size: 14px; font-weight: 800; line-height: 1;
+    display: grid; place-items: center; transition: all .15s;
+  }
+  .chk:hover { border-color: var(--good); }
+  .chk.on {
+    background: var(--good); border-color: var(--good); color: #0f1226;
+  }
   .del {
     appearance: none; background: transparent; border: none;
     color: rgba(168,172,204,.45); cursor: pointer;
@@ -279,6 +293,13 @@
   .field input[type="number"], .field input[type="date"] { font-family: var(--font-mono); font-weight: 600; }
   .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .check-row {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,.04); border: 1px solid var(--border);
+    border-radius: 10px; padding: 11px 14px; margin-bottom: 14px; cursor: pointer;
+  }
+  .check-row input { width: 18px; height: 18px; accent-color: var(--good); cursor: pointer; }
+  .check-row span { font-size: 14px; font-weight: 600; }
   .field-hint { margin-top: -4px; margin-bottom: 14px; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
   .field-hint b { font-family: var(--font-mono); font-weight: 700; margin-left: 4px; }
   .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
@@ -340,6 +361,7 @@
         <div class="r">購入日</div>
         <div class="r">金額</div>
         <div class="r">発送月</div>
+        <div class="c">到着</div>
         <div></div>
       </div>
       <div id="itemRows"></div>
@@ -348,6 +370,7 @@
         <div class="dt"></div>
         <div class="am" id="footTotal">¥0</div>
         <div class="mo"></div>
+        <div class="ck"></div>
         <div></div>
       </div>
     </div>
@@ -383,6 +406,11 @@
           <select id="f_shipMonth"></select>
         </div>
       </div>
+      <label class="check-row">
+        <input type="checkbox" id="f_arrived" />
+        <span>到着済み</span>
+      </label>
+
       <div class="field-hint" id="f_remainHint"></div>
 
       <div class="modal-actions">
@@ -426,7 +454,7 @@ import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, writeBatch
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, addDoc, updateDoc, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // Wel-fit管理アプリと同じFirebaseプロジェクトを共有（同じGoogleアカウントでログイン可）
@@ -566,6 +594,8 @@ function render() {
       <div class="dt ${buy ? "" : "none"}">${escapeHtml(buy || "—")}</div>
       <div class="am ${amount ? "" : "none"}">${amount ? fmtYen(amount) : "—"}</div>
       <div class="mo ${ship ? "" : "none"}">${escapeHtml(ship || "—")}</div>
+      <div class="ck"><button type="button" class="chk ${r.arrived ? "on" : ""}" data-act="arrived" data-id="${r.id}"
+        title="${r.arrived ? "到着済み（タップで未到着に戻す）" : "届いたらタップ"}">${r.arrived ? "✓" : ""}</button></div>
       <button type="button" class="del" data-act="del" data-id="${r.id}" title="削除">×</button>`;
     body.appendChild(el);
   }
@@ -588,6 +618,7 @@ function openModal(row) {
   const p = row ? parseShip(row.ship) : null;
   $("f_shipYear").value = String(p ? p.y : state.year);
   $("f_shipMonth").value = p ? String(p.m) : "";
+  $("f_arrived").checked = row?.arrived === true;
   updateRemainHint();
   $("modal").classList.add("show");
   if (!row) setTimeout(() => $("f_name").focus(), 50);
@@ -618,6 +649,7 @@ async function saveModal(e) {
       buyDate: $("f_buyDate").value || "",
       amount: Number($("f_amount").value || 0),
       ship: month ? `${$("f_shipYear").value}/${month}` : "",
+      arrived: $("f_arrived").checked,
       updatedAt: serverTimestamp()
     };
     await setDoc(yearDocRef(uid, state.year), { year: state.year }, { merge: true });
@@ -754,6 +786,7 @@ async function saveBulk(e) {
         buyDate: "",
         amount: r.amount,
         ship: r.ship,
+        arrived: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -766,6 +799,21 @@ async function saveBulk(e) {
     alert("取り込み失敗: " + err.message);
   } finally {
     btn.disabled = false; btn.textContent = "取り込む";
+  }
+}
+
+// 到着チェックの切り替え（1タップで即保存）
+async function toggleArrived(id) {
+  const row = state.items.find(r => r.id === id);
+  if (!row) return;
+  const next = !(row.arrived === true);
+  row.arrived = next;
+  render();
+  try {
+    await updateDoc(doc(itemsCol(state.user.uid, state.year), id), { arrived: next, updatedAt: serverTimestamp() });
+  } catch (e) {
+    alert("更新失敗: " + e.message);
+    await loadAll();
   }
 }
 
@@ -812,6 +860,7 @@ function bindEvents() {
   document.body.addEventListener("click", e => {
     const btn = e.target.closest("[data-act]"); if (!btn) return;
     const { act, id } = btn.dataset;
+    if (act === "arrived") { toggleArrived(id); return; }
     if (act === "del") { deleteRow(id); return; }
     if (act === "edit") { openModal(state.items.find(r => r.id === id)); return; }
   });
