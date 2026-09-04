@@ -438,7 +438,7 @@ let currentFilter = 'all';
 let searchQuery = '';
 let editId = null;
 let unsubscribe = null;
-let saveTimer = null;
+let inflight = 0;   // 未確定（サーバー確定待ち）の保存件数
 
 // ===== ユーティリティ =====
 function uid(){ return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -467,18 +467,31 @@ function setSync(status){
     const dot = document.getElementById('syncDot');
     dot.className = 'sync-dot' + (status==='syncing'?' syncing':status==='error'?' error':'');
 }
+// オフラインキャッシュを有効化（再読み込み時にキャッシュから即表示 → 読み込み高速化）
+function initPersistence(){
+    try{
+        return db.enablePersistence({synchronizeTabs:true}).catch(()=>{}); // 未対応/多タブ時は無視
+    }catch(e){ return Promise.resolve(); }
+}
+function applySnapshot(doc){
+    if(doc.exists && Array.isArray(doc.data().data)){
+        mangaList = doc.data().data.map(x=>({favorite:false,finished:false,owned:false,bought:0,read:0,yomi:'',...x, id:x.id||uid()}));
+    } else {
+        // 初回：シードデータで初期化
+        mangaList = SEED.map(x=>({...x, id:uid()}));
+        saveNow();
+    }
+    render();
+    document.getElementById('loading').style.display='none';
+}
 function startSync(){
     unsubscribe = DOC.onSnapshot(doc=>{
-        if(doc.exists && Array.isArray(doc.data().data)){
-            mangaList = doc.data().data.map(x=>({favorite:false,finished:false,owned:false,bought:0,read:0,yomi:'',...x, id:x.id||uid()}));
-        } else {
-            // 初回：シードデータで初期化
-            mangaList = SEED.map(x=>({...x, id:uid()}));
-            saveNow();
-        }
-        render();
-        document.getElementById('loading').style.display='none';
-        setSync('synced');
+        // 自分の書き込みの楽観的エコーは無視（ローカルが最新のため上書き不要）
+        if(doc.metadata && doc.metadata.hasPendingWrites) return;
+        // 自分の保存が未確定の間は、古いサーバースナップショットでローカルを上書きしない（お気に入り消失の防止）
+        if(inflight>0) return;
+        applySnapshot(doc);
+        setSync(inflight>0?'syncing':'synced');
     }, err=>{
         console.error('Firestore error:', err);
         setSync('error');
@@ -489,17 +502,19 @@ function startSync(){
 }
 async function saveNow(){
     setSync('syncing');
+    inflight++;   // 同期的に加算 → この後に届くスナップショットの上書きを防ぐ
     try{
         await DOC.set({ data: mangaList, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-        setSync('synced');
     }catch(e){
         console.error('Save error:', e);
-        setSync('error');
         toast('保存エラー', true);
+    }finally{
+        inflight--;
+        setSync(inflight>0?'syncing':'synced');
     }
 }
-// 連続操作をまとめて保存
-function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); render(); }
+// ローカル変更を即時保存（描画も更新）
+function save(){ render(); saveNow(); }
 
 // ===== 描画 =====
 function filtered(){
@@ -719,7 +734,7 @@ document.getElementById('searchClear').onclick=()=>{
 };
 
 // ===== 起動 =====
-startSync();
+initPersistence().then(startSync);
 </script>
 </body>
 </html>
