@@ -37,20 +37,17 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
 .group-head:first-child{margin-top:0;}
 .group-head .g{font-family:'Outfit',sans-serif;font-weight:700;font-size:12px;color:var(--accent);background:var(--glass);border:1px solid var(--glass-border);padding:1px 10px;border-radius:20px;}
 .group-head .line{flex:1;height:1px;background:linear-gradient(90deg,var(--glass-border),transparent);}
-.card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:10px;padding:5px 8px 5px 6px;margin-bottom:5px;display:flex;align-items:center;gap:6px;}
-.fav-star{flex-shrink:0;width:26px;height:26px;border:none;background:transparent;color:var(--text-secondary);font-size:19px;cursor:pointer;padding:0;line-height:1;}
+.card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:10px;padding:8px 11px;margin-bottom:5px;display:flex;align-items:center;gap:9px;cursor:pointer;}
+.card:active{background:var(--glass);}
+.fav-star{flex-shrink:0;width:28px;height:28px;border:none;background:transparent;color:var(--text-secondary);font-size:20px;cursor:pointer;padding:0;line-height:1;}
 .fav-star.on{color:var(--gold);}
-.ttl{flex:1;min-width:0;font-size:14px;font-weight:600;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.badge{flex-shrink:0;font-size:12px;line-height:1;}
-.vol{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;}
-.vol .lbl{font-size:11px;color:var(--text-secondary);line-height:1;}
-.vol .lbl.buy{color:var(--own);}
-.stepper{display:inline-flex;align-items:center;background:var(--glass);border:1px solid var(--glass-border);border-radius:7px;overflow:hidden;}
-.stepper button{width:24px;height:26px;border:none;background:transparent;color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-.stepper button:active{background:var(--glass);}
-.stepper .num{min-width:24px;text-align:center;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;}
-.stepper .num.buy{color:var(--own);}
-.edit-btn{flex-shrink:0;width:28px;height:28px;border-radius:7px;border:1px solid var(--glass-border);background:var(--glass);cursor:pointer;font-size:14px;color:#fff;padding:0;}
+.ttl{flex:1;min-width:0;font-size:14px;font-weight:600;line-height:1.35;word-break:break-word;}
+.nums{flex-shrink:0;display:flex;align-items:center;gap:10px;}
+.nc{display:inline-flex;align-items:center;gap:3px;}
+.nc .nl{font-size:10px;color:var(--text-secondary);}
+.nc b{font-family:'Outfit',sans-serif;font-size:16px;font-weight:700;min-width:16px;text-align:right;}
+.nc.buy .nl,.nc.buy b{color:var(--own);}
+.fin{font-size:13px;line-height:1;}
 .empty{text-align:center;padding:70px 20px;color:var(--text-secondary);}
 .empty .ei{font-size:52px;margin-bottom:14px;}
 .empty h2{font-size:17px;color:#fff;margin-bottom:6px;}
@@ -69,6 +66,13 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
 .fg input[type=text],.fg input[type=number]{width:100%;padding:13px 15px;background:var(--glass);border:1px solid var(--glass-border);border-radius:11px;color:#fff;font-size:15px;font-family:inherit;}
 .fg input:focus{outline:none;border-color:var(--primary);}
 .hint{font-size:11px;color:var(--text-secondary);margin-top:6px;}
+.ac{position:absolute;left:0;right:0;top:100%;z-index:5;margin-top:4px;background:#20203a;border:1px solid var(--glass-border);border-radius:11px;max-height:240px;overflow-y:auto;display:none;box-shadow:0 12px 34px rgba(0,0,0,0.45);}
+.ac.show{display:block;}
+.ac-item{padding:11px 14px;font-size:14px;cursor:pointer;border-bottom:1px solid var(--glass-border);}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:active,.ac-item.hl{background:var(--glass);}
+.ac-item .sub{font-size:11px;color:var(--text-secondary);margin-top:2px;}
+.ac-note{padding:11px 14px;font-size:12px;color:var(--text-secondary);}
 .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;background:var(--glass);border:1px solid var(--glass-border);border-radius:11px;margin-bottom:12px;cursor:pointer;}
 .toggle-row .tl{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;}
 .toggle-row .tl .em{font-size:20px;}
@@ -130,9 +134,11 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
       <button class="modal-close" id="modalClose">×</button>
     </div>
     <div class="modal-body">
-      <div class="fg">
+      <div class="fg" style="position:relative;">
         <label>タイトル</label>
-        <input type="text" id="fTitle" placeholder="例：ワンピース">
+        <input type="text" id="fTitle" placeholder="例：ワンピース" autocomplete="off">
+        <div class="ac" id="titleAc"></div>
+        <div class="hint">2文字以上入力すると実在するマンガの候補を表示します。</div>
       </div>
       <div class="fg">
         <label>よみがな（あいうえお順の並べ替えに使用）</label>
@@ -442,6 +448,8 @@ function toHira(s){
     return String(s||'').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
 }
 function sortKey(item){ return toHira(item.yomi || item.title).normalize('NFKC'); }
+// かな（ひらがな・カタカナ）だけで構成されているか
+function isKana(s){ return /^[぀-ヿー・\s]+$/.test(String(s||'').trim()); }
 // 五十音の行ラベルを返す
 function gyoLabel(item){
     const c = sortKey(item)[0] || '';
@@ -532,22 +540,18 @@ function render(){
     list.innerHTML = html;
 }
 function cardHtml(item){
-    const badgeHtml = item.finished ? '<span class="badge">🏁</span>' : '';
-    const buyHtml = item.owned ? `<span class="vol"><span class="lbl buy">🛒</span><span class="stepper"><button onclick="stepBought('${item.id}',-1)">−</button><span class="num buy">${item.bought}</span><button onclick="stepBought('${item.id}',1)">＋</button></span></span>` : '';
-    return `<div class="card">
-        <button class="fav-star ${item.favorite?'on':''}" onclick="toggleFav('${item.id}')">${item.favorite?'★':'☆'}</button>
-        <span class="ttl" title="${escapeHtml(item.title)}" onclick="openEdit('${item.id}')">${escapeHtml(item.title)}</span>
-        ${badgeHtml}
-        <span class="vol"><span class="lbl">読</span><span class="stepper"><button onclick="stepRead('${item.id}',-1)">−</button><span class="num">${item.read}</span><button onclick="stepRead('${item.id}',1)">＋</button></span></span>
-        ${buyHtml}
-        <button class="edit-btn" onclick="openEdit('${item.id}')">✏️</button>
+    let nums = `<span class="nc"><span class="nl">読</span><b>${item.read}</b></span>`;
+    if(item.owned) nums += `<span class="nc buy"><span class="nl">🛒</span><b>${item.bought}</b></span>`;
+    if(item.finished) nums += '<span class="fin">🏁</span>';
+    return `<div class="card" onclick="openEdit('${item.id}')">
+        <button class="fav-star ${item.favorite?'on':''}" onclick="event.stopPropagation();toggleFav('${item.id}')">${item.favorite?'★':'☆'}</button>
+        <span class="ttl">${escapeHtml(item.title)}</span>
+        <span class="nums">${nums}</span>
     </div>`;
 }
 
 // ===== 操作 =====
 function find(id){ return mangaList.find(x=>x.id===id); }
-function stepRead(id,d){ const it=find(id); if(!it)return; it.read=Math.max(0,(it.read||0)+d); if(it.owned&&it.bought<it.read) it.bought=it.read; save(); }
-function stepBought(id,d){ const it=find(id); if(!it)return; it.bought=Math.max(0,(it.bought||0)+d); save(); }
 function toggleFav(id){ const it=find(id); if(!it)return; it.favorite=!it.favorite; save(); }
 
 // ===== モーダル =====
@@ -564,6 +568,7 @@ function openAdd(){
     setToggle(document.getElementById('tgDone'),false);
     document.getElementById('buyField').classList.remove('show');
     document.getElementById('deleteBtn').style.display='none';
+    hideAc();
     document.getElementById('modal').classList.add('open');
     setTimeout(()=>document.getElementById('fTitle').focus(),100);
 }
@@ -580,9 +585,10 @@ function openEdit(id){
     setToggle(document.getElementById('tgDone'),it.finished);
     document.getElementById('buyField').classList.toggle('show',it.owned);
     document.getElementById('deleteBtn').style.display='block';
+    hideAc();
     document.getElementById('modal').classList.add('open');
 }
-function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+function closeModal(){ hideAc(); document.getElementById('modal').classList.remove('open'); }
 function saveModal(){
     const title=document.getElementById('fTitle').value.trim();
     if(!title){ toast('タイトルを入力してください',true); return; }
@@ -621,7 +627,70 @@ function toast(msg,isErr){
     setTimeout(()=>t.classList.remove('show'),2500);
 }
 
+// ===== タイトルの予測変換（実在マンガの候補） =====
+// AniList API(日本語タイトル)を主に、失敗時は Jikan(MyAnimeList) を予備に使用。
+// どちらも失敗しても自由入力は可能。
+let acTimer=null, acSeq=0;
+const acBox=document.getElementById('titleAc');
+function hideAc(){ acBox.classList.remove('show'); acBox.innerHTML=''; }
+function scheduleAc(q){
+    clearTimeout(acTimer);
+    if(q.length<2){ hideAc(); return; }
+    acTimer=setTimeout(()=>fetchAc(q),300);
+}
+async function fetchAc(q){
+    const seq=++acSeq;
+    acBox.innerHTML='<div class="ac-note">検索中...</div>'; acBox.classList.add('show');
+    let list=[];
+    try{ list=await searchAniList(q); }catch(e){ console.warn('AniList失敗',e); }
+    if(!list.length){ try{ list=await searchJikan(q); }catch(e){ console.warn('Jikan失敗',e); } }
+    if(seq!==acSeq) return; // 新しい入力が来ていたら破棄
+    renderAc(list);
+}
+async function searchAniList(q){
+    const query='query($q:String){Page(perPage:10){media(search:$q,type:MANGA,sort:SEARCH_MATCH){title{native romaji english}}}}';
+    const res=await fetch('https://graphql.anilist.co',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({query,variables:{q}})});
+    if(!res.ok) throw new Error('anilist '+res.status);
+    const j=await res.json();
+    const media=(j.data&&j.data.Page&&j.data.Page.media)||[];
+    const seen=new Set(), out=[];
+    for(const mm of media){
+        const t=(mm.title.native||mm.title.romaji||mm.title.english||'').trim();
+        if(!t||seen.has(t)) continue; seen.add(t);
+        const sub=(mm.title.native&&mm.title.romaji&&mm.title.romaji!==t)?mm.title.romaji:'';
+        out.push({title:t,sub});
+    }
+    return out;
+}
+async function searchJikan(q){
+    const res=await fetch('https://api.jikan.moe/v4/manga?limit=10&q='+encodeURIComponent(q));
+    if(!res.ok) throw new Error('jikan '+res.status);
+    const j=await res.json();
+    const seen=new Set(), out=[];
+    for(const it of (j.data||[])){
+        const t=(it.title_japanese||it.title||'').trim();
+        if(!t||seen.has(t)) continue; seen.add(t);
+        out.push({title:t,sub:(it.title&&it.title!==t)?it.title:''});
+    }
+    return out;
+}
+function renderAc(list){
+    if(!list.length){ acBox.innerHTML='<div class="ac-note">候補が見つかりません（そのまま入力できます）</div>'; acBox.classList.add('show'); return; }
+    acBox.innerHTML=list.map(x=>`<div class="ac-item" onmousedown="event.preventDefault();pickAc(this)" data-t="${escapeHtml(x.title)}"><div>${escapeHtml(x.title)}</div>${x.sub?`<div class="sub">${escapeHtml(x.sub)}</div>`:''}</div>`).join('');
+    acBox.classList.add('show');
+}
+function pickAc(el){
+    const t=el.getAttribute('data-t');
+    document.getElementById('fTitle').value=t;
+    const yomiEl=document.getElementById('fYomi');
+    if(!yomiEl.value && isKana(t)) yomiEl.value=toHira(t); // かなタイトルはよみがなを自動補完
+    hideAc();
+    yomiEl.focus();
+}
+
 // ===== イベント =====
+document.getElementById('fTitle').addEventListener('input',function(){ scheduleAc(this.value.trim()); });
+document.getElementById('fTitle').addEventListener('blur',()=>setTimeout(hideAc,150));
 document.getElementById('addBtn').onclick=openAdd;
 document.getElementById('modalClose').onclick=closeModal;
 document.getElementById('saveBtn').onclick=saveModal;
