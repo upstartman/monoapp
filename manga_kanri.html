@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>マンガ管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--primary:#6366f1;--accent:#f472b6;--gold:#fbbf24;--bg-dark:#0f0f1a;--bg-card:rgba(255,255,255,0.03);--text-primary:#fff;--text-secondary:rgba(255,255,255,0.6);--glass:rgba(255,255,255,0.05);--glass-border:rgba(255,255,255,0.1);--own:#22d3ee;--done:#34d399;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(--text-primary);min-height:100vh;font-size:16px;line-height:1.5;}
+.bg-animation{position:fixed;inset:0;z-index:-1;background:radial-gradient(circle at 20% 80%,rgba(99,102,241,0.15) 0%,transparent 50%),radial-gradient(circle at 80% 20%,rgba(244,114,182,0.12) 0%,transparent 50%);}
+.header{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 16px;background:rgba(15,15,26,0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-border);}
+.header-inner{max-width:640px;margin:0 auto;}
+.header-top{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.logo-text{font-size:17px;font-weight:700;}
+.header-btns{display:flex;gap:8px;align-items:center;}
+.icon-btn{width:40px;height:40px;background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;color:#fff;position:relative;}
+.icon-btn.add{background:linear-gradient(135deg,var(--primary),var(--accent));border:none;font-size:24px;font-weight:700;}
+.sync-dot{position:absolute;top:-3px;right:-3px;width:11px;height:11px;background:#22c55e;border-radius:50%;border:2px solid var(--bg-dark);}
+.sync-dot.syncing{background:#f59e0b;animation:pulse 1s infinite;}
+.sync-dot.error{background:#ef4444;}
+.search-wrap{position:relative;margin-top:10px;}
+.search-wrap input{width:100%;padding:12px 40px 12px 40px;background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;color:#fff;font-size:15px;font-family:inherit;}
+.search-wrap input:focus{outline:none;border-color:var(--primary);}
+.search-wrap .si{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.6;}
+.search-wrap .sc{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;background:transparent;color:var(--text-secondary);font-size:18px;cursor:pointer;display:none;}
+.tabs{display:flex;gap:8px;margin-top:10px;}
+.tab{flex:1;padding:9px 6px;background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;font-size:13px;font-weight:600;color:var(--text-secondary);cursor:pointer;text-align:center;}
+.tab.active{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;border-color:transparent;}
+.tab .cnt{font-size:11px;opacity:.8;margin-left:4px;}
+.main{padding:172px 16px 60px;max-width:640px;margin:0 auto;}
+.stats{font-size:12px;color:var(--text-secondary);margin-bottom:14px;text-align:center;}
+.group-head{display:flex;align-items:center;gap:10px;margin:22px 0 12px;}
+.group-head:first-child{margin-top:0;}
+.group-head .g{font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;color:var(--accent);background:var(--glass);border:1px solid var(--glass-border);padding:2px 12px;border-radius:20px;}
+.group-head .line{flex:1;height:1px;background:linear-gradient(90deg,var(--glass-border),transparent);}
+.card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:14px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;}
+.card-main{flex:1;min-width:0;}
+.card-title{font-size:15px;font-weight:600;line-height:1.35;word-break:break-word;margin-bottom:8px;}
+.badges{display:inline-flex;gap:6px;flex-wrap:wrap;vertical-align:middle;margin-left:6px;}
+.badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;line-height:1.6;}
+.badge.own{background:rgba(34,211,238,0.15);color:var(--own);border:1px solid rgba(34,211,238,0.35);}
+.badge.done{background:rgba(52,211,153,0.15);color:var(--done);border:1px solid rgba(52,211,153,0.35);}
+.vols{display:flex;gap:16px;flex-wrap:wrap;}
+.vol{display:flex;align-items:center;gap:8px;}
+.vol .lbl{font-size:11px;color:var(--text-secondary);min-width:42px;}
+.vol .lbl.buy{color:var(--own);}
+.stepper{display:flex;align-items:center;gap:2px;background:var(--glass);border:1px solid var(--glass-border);border-radius:9px;overflow:hidden;}
+.stepper button{width:30px;height:30px;border:none;background:transparent;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.stepper button:active{background:var(--glass);}
+.stepper .num{min-width:34px;text-align:center;font-family:'Outfit',sans-serif;font-weight:700;font-size:15px;}
+.stepper .num.buy{color:var(--own);}
+.card-side{display:flex;flex-direction:column;gap:8px;align-items:center;}
+.side-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--glass-border);background:var(--glass);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:19px;}
+.side-btn.fav.on{background:rgba(251,191,36,0.15);border-color:rgba(251,191,36,0.45);}
+.empty{text-align:center;padding:70px 20px;color:var(--text-secondary);}
+.empty .ei{font-size:52px;margin-bottom:14px;}
+.empty h2{font-size:17px;color:#fff;margin-bottom:6px;}
+.empty p{font-size:13px;}
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.modal.open{display:flex;}
+.modal-content{background:#1a1a2e;border-radius:20px 20px 0 0;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border:1px solid var(--glass-border);}
+@media(min-width:641px){.modal{align-items:center;}.modal-content{border-radius:20px;}}
+.modal-header{padding:18px 20px;border-bottom:1px solid var(--glass-border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#1a1a2e;z-index:1;}
+.modal-header h2{font-size:17px;font-weight:700;}
+.modal-close{width:34px;height:34px;background:var(--glass);border:none;border-radius:9px;color:#fff;font-size:20px;cursor:pointer;}
+.modal-body{padding:20px;}
+.fg{margin-bottom:18px;}
+.fg label{display:block;font-size:13px;font-weight:500;margin-bottom:7px;color:var(--text-secondary);}
+.fg input[type=text],.fg input[type=number]{width:100%;padding:13px 15px;background:var(--glass);border:1px solid var(--glass-border);border-radius:11px;color:#fff;font-size:15px;font-family:inherit;}
+.fg input:focus{outline:none;border-color:var(--primary);}
+.hint{font-size:11px;color:var(--text-secondary);margin-top:6px;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;background:var(--glass);border:1px solid var(--glass-border);border-radius:11px;margin-bottom:12px;cursor:pointer;}
+.toggle-row .tl{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;}
+.toggle-row .tl .em{font-size:20px;}
+.sw{width:48px;height:28px;border-radius:20px;background:rgba(255,255,255,0.15);position:relative;transition:.2s;flex-shrink:0;}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s;}
+.toggle-row.on .sw{background:linear-gradient(135deg,var(--primary),var(--accent));}
+.toggle-row.on .sw::after{left:23px;}
+.buy-field{display:none;}
+.buy-field.show{display:block;}
+.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;}
+.btn-danger{background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.35);margin-top:10px;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:#1a1a2e;border:1px solid var(--glass-border);padding:13px 22px;border-radius:12px;font-size:14px;z-index:300;transition:.3s;opacity:0;}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast.error{border-color:rgba(239,68,68,0.5);}
+.loading{position:fixed;inset:0;background:var(--bg-dark);z-index:400;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.spinner{width:44px;height:44px;border:4px solid var(--glass-border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+</style>
+</head>
+<body>
+<div class="bg-animation"></div>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="header-top">
+      <div class="logo">
+        <div class="logo-icon">📚</div>
+        <div class="logo-text">マンガ管理</div>
+      </div>
+      <div class="header-btns">
+        <div class="icon-btn" id="syncBtn">🔄<span class="sync-dot" id="syncDot"></span></div>
+        <div class="icon-btn add" id="addBtn">＋</div>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <span class="si">🔍</span>
+      <input type="text" id="search" placeholder="タイトル・よみがなで検索">
+      <button class="sc" id="searchClear">×</button>
+    </div>
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-filter="all">すべて<span class="cnt" id="cntAll"></span></div>
+      <div class="tab" data-filter="own">購入<span class="cnt" id="cntOwn"></span></div>
+      <div class="tab" data-filter="fav">お気に入り<span class="cnt" id="cntFav"></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="stats" id="stats"></div>
+  <div id="list"></div>
+</div>
+
+<!-- 追加/編集モーダル -->
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modalTitle">マンガを追加</h2>
+      <button class="modal-close" id="modalClose">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="fg">
+        <label>タイトル</label>
+        <input type="text" id="fTitle" placeholder="例：ワンピース">
+      </div>
+      <div class="fg">
+        <label>よみがな（あいうえお順の並べ替えに使用）</label>
+        <input type="text" id="fYomi" placeholder="例：わんぴーす">
+        <div class="hint">ひらがなで入力してください。空欄の場合はタイトルで並べ替えます。</div>
+      </div>
+      <div class="fg">
+        <label>読んでいる巻数</label>
+        <input type="number" id="fRead" min="0" value="0" inputmode="numeric">
+      </div>
+      <div class="toggle-row" id="tgOwn">
+        <div class="tl"><span class="em">🛒</span>購入している</div>
+        <div class="sw"></div>
+      </div>
+      <div class="fg buy-field" id="buyField">
+        <label>買っている巻数</label>
+        <input type="number" id="fBought" min="0" value="0" inputmode="numeric">
+      </div>
+      <div class="toggle-row" id="tgFav">
+        <div class="tl"><span class="em">⭐</span>お気に入り</div>
+        <div class="sw"></div>
+      </div>
+      <div class="toggle-row" id="tgDone">
+        <div class="tl"><span class="em">🏁</span>完結済み</div>
+        <div class="sw"></div>
+      </div>
+      <button class="btn btn-primary" id="saveBtn">保存</button>
+      <button class="btn btn-danger" id="deleteBtn" style="display:none;">削除</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading" id="loading"><div class="spinner"></div><div style="color:var(--text-secondary);font-size:14px;">読み込み中...</div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script>
+// ===== Firebase：既存の家庭用ビデオアプリと同じプロジェクトに相乗り =====
+// family_video_firebase.html と同一の Firestore プロジェクト（home-video-d81f0）を共有する。
+// 保存先ドキュメントは settings/mangaData（videoData とは別ドキュメントなので干渉しない）。
+const firebaseConfig = {
+    apiKey: "AIzaSyDAa9wZK3eJYzqY3UhLrb3h1VSM-ygkkik",
+    authDomain: "home-video-d81f0.firebaseapp.com",
+    projectId: "home-video-d81f0",
+    storageBucket: "home-video-d81f0.firebasestorage.app",
+    messagingSenderId: "933435624953",
+    appId: "1:933435624953:web:7161ab04f5d50e56a80128"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const DOC = db.collection('settings').doc('mangaData');
+
+// ===== 初期データ =====
+// 記法の解釈：末尾の数値=読んでいる巻数、★=購入済み、[完]=完結。
+// 「ゼロとヒャク★ (2)3」は購入済みで 既読2巻・購入3巻（買い先行）と解釈。
+// 購入済みで巻数が1つだけのものは 既読=購入 として登録（あとから調整可能）。
+// m(title, yomi, read, owned, bought, finished)
+function m(title, yomi, read, owned, bought, finished){
+    return {title, yomi, read:read||0, owned:!!owned, bought:owned?(bought!=null?bought:read||0):0, favorite:false, finished:!!finished};
+}
+const SEED = [
+    m("お気楽領主の楽しい領地防衛","おきらくりょうしゅのたのしいりょうちぼうえい",8,true,8),
+    m("アオのハコ","あおのはこ",26,true,26),
+    m("ハナバス","はなばす",6,true,6),
+    m("愛してるゲームを終わらせたい","あいしてるげーむをおわらせたい",9,true,9),
+    m("ゼロとヒャク","ぜろとひゃく",2,true,3),
+    m("キングダム","きんぐだむ",80,false),
+    m("ブルーロック","ぶるーろっく",40,false),
+    m("DEAR BOYS ACT4","でぃあぼーいずあくと4",23,false),
+    m("HUNTER × HUNTER","はんたーはんたー",36,false),
+    m("BUNGO","ぶんご",19,false),
+    m("僕のヒーローアカデミア","ぼくのひーろーあかでみあ",16,false),
+    m("キスデス","きすです",3,false),
+    m("亜人","あじん",12,false),
+    m("新宿スワン","しんじゅくすわん",11,false),
+    m("灰仭巫覡","かいじんふげき",8,false),
+    m("ドメスティックな彼女","どめすてぃっくなかのじょ",22,false),
+    m("いぬやしき","いぬやしき",6,false),
+    m("今際の国のアリス","いまわのくにのありす",18,false,0,true),
+    m("カラダ探し","からださがし",17,false,0,true),
+    m("カラダ探し解","からださがしかい",0,false),
+    m("MIX","みっくす",14,false),
+    m("ドクムシ","どくむし",6,false,0,true),
+    m("神様の言う通り弐","かみさまのいうとおりに",21,false,0,true),
+    m("ワンピース","わんぴーす",69,false),
+    m("結婚指輪物語","けっこんゆびわものがたり",11,false),
+    m("監獄実験","かんごくじっけん",4,false),
+    m("でちゃう","でちゃう",1,false),
+    m("インフェクション","いんふぇくしょん",6,false),
+    m("WXY","だぶりゅーえっくすわい",5,false),
+    m("ホリミヤ","ほりみや",12,false),
+    m("働く細胞","はたらくさいぼう",3,false),
+    m("不束な兄ですが","ふつつかなあにですが",4,false),
+    m("食戟のソーマ","しょくげきのそーま",35,false),
+    m("ちはやふる","ちはやふる",0,false),
+    m("生贄投票","いけにえとうひょう",3,false),
+    m("プラチナエンド","ぷらちなえんど",5,false),
+    m("ギフト","ぎふと",4,false),
+    m("渡くんの××が崩壊寸前","わたるくんのばつばつがほうかいすんぜん",16,false),
+    m("監禁嬢","かんきんじょう",2,false),
+    m("監禁王","かんきんおう",2,false),
+    m("金魚妻","きんぎょづま",4,false),
+    m("DAEDTUBE","でっどちゅーぶ",2,false),
+    m("終末のハーレム","しゅうまつのはーれむ",16,false),
+    m("血の轍","ちのわだち",2,false),
+    m("五等分の花嫁","ごとうぶんのはなよめ",9,false),
+    m("ナイトメアメーカー","ないとめあめーかー",1,false),
+    m("レトルトパウチ","れとるとぱうち",0,false),
+    m("約束のネバーランド","やくそくのねばーらんど",2,false),
+    m("パラレルパラダイス","ぱられるぱらだいす",19,false),
+    m("ナリカワリ","なりかわり",1,false),
+    m("創世のタイガ","そうせいのたいが",14,false),
+    m("なんでここに先生が","なんでここにせんせいが",4,false),
+    m("終末のワルキューレ","しゅうまつのわるきゅーれ",13,false),
+    m("英雄教室","えいゆうきょうしつ",4,false),
+    m("GIGANT","ぎがんと",2,false),
+    m("ソウナンですか？","そうなんですか",4,false),
+    m("失格紋の最強賢者","しっかくもんのさいきょうけんじゃ",14,false),
+    m("世界か彼女か選べない","せかいかかのじょかえらべない",3,false),
+    m("ブルーピリオド","ぶるーぴりおど",9,false),
+    m("るろうに剣心 北海道編","るろうにけんしんほっかいどうへん",2,false),
+    m("かつて神だった獣達へ","かつてかみだったけものたちへ",2,false),
+    m("百万の命の上に俺は立っている","ひゃくまんのいのちのうえにおれはたっている",6,false),
+    m("呪術廻戦","じゅじゅつかいせん",2,false),
+    m("東京喰種","とうきょうぐーる",0,false),
+    m("その着せ替え人形は恋をする","そのきせかえにんぎょうはこいをする",15,false,0,true),
+    m("可愛いだけじゃない式守さん","かわいいだけじゃないしきもりさん",2,false),
+    m("1年A組のモンスター","いちねんえーぐみのもんすたー",9,false),
+    m("葬送のフリーレン","そうそうのふりーれん",4,false),
+    m("ナイツ&マジック","ないつあんどまじっく",17,false,0,true),
+    m("この会社に好きな人がいます","このかいしゃにすきなひとがいます",12,false),
+    m("青のオーケストラ","あおのおーけすとら",8,false),
+    m("チェンソーマン","ちぇんそーまん",12,false),
+    m("見える子ちゃん","みえるこちゃん",2,false),
+    m("魔王の始め方","まおうのはじめかた",4,false),
+    m("怪獣8号","かいじゅうはちごう",7,false),
+    m("賢者の孫","けんじゃのまご",18,false),
+    m("とんでもスキルで異世界放浪メシ","とんでもすきるでいせかいほうろうめし",10,false),
+    m("チ。","ち",8,false),
+    m("超人X","ちょうじんえっくす",2,false),
+    m("シャングリラフロンティア","しゃんぐりらふろんてぃあ",9,false),
+    m("妖トライアングル","あやかしとらいあんぐる",4,false),
+    m("魔都精兵のスレイブ","まとせいへいのすれいぶ",11,false),
+    m("桃源暗鬼","とうげんあんき",11,false),
+    m("現実主義勇者の王国再建記","げんじつしゅぎゆうしゃのおうこくさいけんき",8,false),
+    m("転生したら第七王子だったので魔法を極める","てんせいしたらだいななおうじだったのでまほうをきわめる",6,false),
+    m("娘の友達","むすめのともだち",7,false,0,true),
+    m("無法島","むほうとう",6,false,0,true),
+    m("ウマ娘","うまむすめ",0,false),
+    m("推しの子","おしのこ",16,false,0,true),
+    m("明日、私は誰かのカノジョ","あしたわたしはだれかのかのじょ",0,false),
+    m("ULTRAMAN","うるとらまん",0,false),
+    m("ダンダダン","だんだだん",5,false),
+    m("自殺島","じさつとう",17,false,0,true),
+    m("甘神さんちの縁結び","あまがみさんちのえんむすび",2,false),
+    m("転生貴族、鑑定スキルで成り上がる","てんせいきぞくかんていすきるでなりあがる",18,false),
+    m("冒険者ライセンスを剥奪されたおっさんだけど","ぼうけんしゃらいせんすをはくだつされたおっさんだけど",4,false),
+    m("魔道具士ダリヤはうつむかない","まどうぐしだりやはうつむかない",1,false),
+    m("異世界ゆるっとサバイバル","いせかいゆるっとさばいばる",9,false),
+    m("ゾンビのあふれた世界で俺だけが襲われない","ぞんびのあふれたせかいでおれだけがおそわれない",2,false),
+    m("地獄に落ちてよ、お兄ちゃん","じごくにおちてよおにいちゃん",4,false,0,true),
+    m("夫婦以上、恋人未満","ふうふいじょうこいびとみまん",13,false),
+    m("魔法科高校の劣等生 スティープルチェース編","まほうかこうこうのれっとうせいすてぃーぷるちぇーすへん",3,false,0,true),
+    m("魔法科高校の劣等生 古都内乱編","まほうかこうこうのれっとうせいことないらんへん",5,false,0,true),
+    m("魔法科高校の劣等生 四葉継承編","まほうかこうこうのれっとうせいよつばけいしょうへん",3,false,0,true),
+    m("魔法科高校の劣等生 士族会議編","まほうかこうこうのれっとうせいしぞくかいぎへん",9,false,0,true),
+    m("魔法科高校の劣等生 南海騒擾編","まほうかこうこうのれっとうせいなんかいそうじょうへん",3,false,0,true),
+    m("魔法科高校の劣等生 動乱の序章編","まほうかこうこうのれっとうせいどうらんのじょしょうへん",2,false),
+    m("魔法科高校の劣等生 孤立編","まほうかこうこうのれっとうせいこりつへん",2,false),
+    m("魔法科高校の劣等生 エスケープ編","まほうかこうこうのれっとうせいえすけーぷへん",3,false),
+    m("こじらせ転生魔王と7人のおしかけ乙女のラグナロク・システム","こじらせてんせいまおうとななにんのおしかけおとめのらぐなろくしすてむ",0,false),
+    m("転生貴族の異世界冒険録","てんせいきぞくのいせかいぼうけんろく",0,false),
+    m("道産子ギャルはなまらめんこい","どさんこぎゃるはなまらめんこい",0,false),
+    m("恥じらう君が見たいんだ","はじらうきみがみたいんだ",10,false),
+    m("彼女の友達","かのじょのともだち",7,false),
+    m("ギルティサークル","ぎるてぃさーくる",6,false),
+    m("ふたりハイシン","ふたりはいしん",3,false),
+    m("ベッドインキャンパス","べっどいんきゃんぱす",9,false),
+    m("LILI-MEN","りりめん",3,false),
+    m("没落予定の貴族だけど、暇だったから魔法を極めてみた","ぼつらくよていのきぞくだけどひまだったからまほうをきわめてみた",7,false),
+    m("錬金貴族の領地経営","れんきんきぞくのりょうちけいえい",6,false),
+    m("底辺領主の勘違い英雄譚","ていへんりょうしゅのかんちがいえいゆうたん",8,false),
+    m("ラストギアス","らすとぎあす",7,false,0,true),
+    m("おねチャ","おねちゃ",7,false),
+    m("あそびあい","あそびあい",0,false),
+    m("偏愛ハートビート","へんあいはーとびーと",1,false),
+    m("ユメオチ","ゆめおち",4,false,0,true),
+    m("毒の王","どくのおう",0,false),
+    m("鬼畜英雄","きちくえいゆう",6,false),
+    m("器用貧乏、城を建てる","きようびんぼうしろをたてる",3,false),
+    m("俺の女優が一番淫ら","おれのじょゆうがいちばんみだら",7,false,0,true),
+    m("搾精病棟","さくせいびょうとう",2,false),
+    m("優等生と秘密のお仕事","ゆうとうせいとひみつのおしごと",9,false),
+    m("ゲームオブファミリア","げーむおぶふぁみりあ",9,false),
+    m("だぶるぷれい","だぶるぷれい",5,false),
+    m("アカイリンゴ","あかいりんご",7,false),
+    m("異世界帰りの大賢者は","いせかいがえりのだいけんじゃは",2,false),
+    m("転生貴族の万能開拓","てんせいきぞくのばんのうかいたく",7,false),
+    m("教え子がAV女優、監督はボク。","おしえごがえーぶいじょゆうかんとくはぼく",15,false,0,true),
+    m("クラス≪無職≫の英雄譚","くらすむしょくのえいゆうたん",3,false),
+    m("異世界らくらくサバイバル","いせかいらくらくさばいばる",6,false),
+    m("エロゲの世界でスローライフ","えろげのせかいですろーらいふ",2,false),
+    m("異世界日本～暗殺一家の三男は異界化した日本で無双する","いせかいにっぽんあんさついっかのさんなんはいかいかしたにっぽんでむそうする",1,false),
+    m("追放された転生重騎士はゲーム知識で無双する","ついほうされたてんせいじゅうきしはげーむちしきでむそうする",8,false),
+    m("おかえり、パパ","おかえりぱぱ",2,false),
+    m("ごめんなさいお嬢様、俺はメイドが好きなんです","ごめんなさいおじょうさまおれはめいどがすきなんです",1,false),
+    m("カノジョの弱みを握ったら","かのじょのよわみをにぎったら",3,false),
+    m("異世界の貧乏農家に転生したので、レンガを作って城を建てることにしました","いせかいのびんぼうのうかにてんせいしたのでれんがをつくってしろをたてることにしました",5,false),
+    m("ボディ＋フレンド","ぼでぃふれんど",2,false),
+    m("ニューノーマル","にゅーのーまる",6,false),
+    m("番上のオリオン","ばんじょうのおりおん",2,false),
+    m("フィルター越しのカノジョ","ふぃるたーごしのかのじょ",5,false),
+    m("俺は知らないうちに学校一の美少女を口説いていたらしい","おれはしらないうちにがっこういちのびしょうじょをくどいていたらしい",5,false),
+    m("バーサス","ばーさす",3,false),
+    m("無限のスキルゲッター","むげんのすきるげったー",5,false),
+    m("雷雷雷","らいらいらい",1,false),
+    m("マッシュル","まっしゅる",11,false),
+    m("メメントメモリ","めめんとめもり",1,false),
+    m("イリオス","いりおす",8,false),
+    m("転生したら才能があった件","てんせいしたらさいのうがあったけん",3,false),
+    m("龍とカメレオン","りゅうとかめれおん",2,false),
+    m("南條さんは僕に抱かれたい","なんじょうさんはぼくにだかれたい",2,false),
+    m("昇天せるジョレイ師","しょうてんせるじょれいし",1,false),
+    m("辺境の薬師、都でＳランク冒険者となる","へんきょうのくすしみやこでえすらんくぼうけんしゃとなる",0,false),
+    m("異世界料理道","いせかいりょうりどう",14,false),
+    m("俺んちに来た女騎士と田舎暮らしすることになった件","おれんちにきたおんなきしといなかぐらしすることになったけん",15,false),
+    m("異世界パパ活おじさん","いせかいぱぱかつおじさん",2,false),
+    m("NTREVEVGE","えぬてぃーあーるりべんじ",4,false),
+    m("ぴゅあ 0.01mm","ぴゅあ",1,false),
+    m("転生コロシアム","てんせいころしあむ",4,false),
+    m("のぞき穴","のぞきあな",4,false),
+    m("ギャルにぱちゃんはせまられたい","ぎゃるにぱちゃんはせまられたい",7,false),
+    m("今日から人妻マンションに入居します","きょうからひとづままんしょんににゅうきょします",3,false),
+    m("アラフォー男の異世界通販生活","あらふぉーおとこのいせかいつうはんせいかつ",8,false,0,true),
+    m("月曜日のたわわ","げつようびのたわわ",12,false),
+    m("かまって新卒ちゃんが毎回誘ってくる","かまってしんそつちゃんがまいかいさそってくる",4,false),
+    m("廻天のアルバス","かいてんのあるばす",2,false),
+    m("ベー革","べーかく",5,false),
+    m("恋文と13歳の女優","こいぶみとじゅうさんさいのじょゆう",2,false),
+    m("侯爵嫡男好色物語","こうしゃくちゃくなんこうしょくものがたり",8,false),
+    m("ゾンビ世界のハーレムを作ろう","ぞんびせかいのはーれむをつくろう",1,false),
+    m("PEEP","ぴーぷ",2,false),
+    m("幼馴染とはラブコメにならない","おさななじみとはらぶこめにならない",15,false),
+    m("結界師への転生","けっかいしへのてんせい",8,false),
+    m("寝取り魔法使いの冒険","ねとりまほうつかいのぼうけん",5,false),
+    m("カラミざかり","からみざかり",3,false,0,true),
+    m("アイツノカノジョ","あいつのかのじょ",7,false),
+    m("世界最強の魔女始めました","せかいさいきょうのまじょはじめました",5,false),
+    m("撮るに足らない","とるにたらない",4,false),
+    m("DEAD ROCK","でっどろっく",0,false),
+    m("悪祓士のキヨシくん","あくばらいしのきよしくん",4,false),
+    m("ヘルモード","へるもーど",13,false),
+    m("辺境の錬金術師","へんきょうのれんきんじゅつし",3,false),
+    m("転生勇者の気まま旅","てんせいゆうしゃのきままたび",5,false),
+    m("こういうのがいい","こういうのがいい",12,false),
+    m("攻撃力ゼロから始める剣聖譚","こうげきりょくぜろからはじめるけんせいたん",4,false),
+    m("8月31日のロングサマー","はちがつさんじゅういちにちのろんぐさまー",12,false),
+    m("玉川さん 出てました？","たまがわさんでてました",3,false),
+    m("屋根の下のアルテミス","やねのしたのあるてみす",0,false),
+    m("地元のいじめっ子達に仕返ししようとしたら、別の戦いが始まった。","じもとのいじめっこたちにしかえししようとしたらべつのたたかいがはじまった",0,false),
+    m("ダークギャザリング","だーくぎゃざりんぐ",0,false),
+    m("エロティカル・ウィザードと12人の花嫁","えろてぃかるうぃざーどとじゅうににんのはなよめ",0,false),
+    m("ケントゥリア","けんとぅりあ",0,false),
+    m("スノウボールアース","すのうぼーるあーす",0,false),
+    m("週末の次女ちゃん","しゅうまつのじじょちゃん",6,false),
+    m("暴食※","ぼうしょく",0,false),
+    m("女子攻兵","じょしこうへい",0,false),
+    m("ワンナイトモーニング","わんないともーにんぐ",0,false),
+    m("黒猫と魔女の教室","くろねことまじょのきょうしつ",0,false),
+    m("阿武ノーマル","あぶのーまる",0,false),
+    m("ヒストリエ","ひすとりえ",0,false),
+    m("セフり、ソフられ。","せふりそふられ",0,false),
+    m("けだものたちの時間～狂依存症候群～","けだものたちのじかんくるいぞんしょうこうぐん",0,false),
+    m("落とし堕とされ推し押され","おとしおとされおしおされ",0,false),
+    m("男子だと思っていた幼馴染との新婚生活がうまくいきすぎる件について","だんしだとおもっていたおさななじみとのしんこんせいかつがうまくいきすぎるけんについて",0,false),
+    m("さるまね","さるまね",0,false),
+    m("異世界薬局","いせかいやっきょく",0,false),
+    m("2.5次元の誘惑","にてんごじげんのゆうわく",0,false),
+    m("いろはにほエロ！","いろはにほえろ",0,false),
+    m("恋愛サバイバルリアリティショーに来たはずが、リアルサバイバルデスゲームを生き抜くことになりました","れんあいさばいばるりありてぃしょーにきたはずがりあるさばいばるですげーむをいきぬくことになりました",0,false),
+    m("神の手違いで死んだらチートガン積みで異世界に放り込まれました","かみのてちがいでしんだらちーとがんづみでいせかいにほうりこまれました",0,false),
+    m("POLUTO","ぷると",0,false),
+    m("サイリウム・パパ","さいりうむぱぱ",0,false),
+    m("フェアウェイの声をきかせて","ふぇあうぇいのこえをきかせて",0,false),
+    m("キングダムオブザＺ","きんぐだむおぶざぜっと",0,false),
+    m("災悪のアヴァロン","さいあくのあばろん",0,false),
+    m("OMORI","おもり",0,false),
+    m("極楽街","ごくらくがい",0,false),
+    m("ファントムバスターズ","ふぁんとむばすたーず",0,false),
+    m("ギャル嫁の秘密","ぎゃるよめのひみつ",0,false)
+];
+
+// ===== 状態 =====
+let mangaList = [];
+let currentFilter = 'all';
+let searchQuery = '';
+let editId = null;
+let unsubscribe = null;
+let saveTimer = null;
+
+// ===== ユーティリティ =====
+function uid(){ return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// カタカナ→ひらがな変換（検索・並べ替えの正規化用）
+function toHira(s){
+    return String(s||'').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
+}
+function sortKey(item){ return toHira(item.yomi || item.title).normalize('NFKC'); }
+// 五十音の行ラベルを返す
+function gyoLabel(item){
+    const c = sortKey(item)[0] || '';
+    const map = [
+        ['あ','あいうえおぁぃぅぇぉ'],['か','かきくけこがぎぐげご'],['さ','さしすせそざじずぜぞ'],
+        ['た','たちつてとだぢづでどっ'],['な','なにぬねの'],['は','はひふへほばびぶべぼぱぴぷぺぽ'],
+        ['ま','まみむめも'],['や','やゆよゃゅょ'],['ら','らりるれろ'],['わ','わをん']
+    ];
+    for(const [label,set] of map){ if(set.indexOf(c)>=0) return label+'行'; }
+    return 'その他';
+}
+
+// ===== 同期 =====
+function setSync(status){
+    const dot = document.getElementById('syncDot');
+    dot.className = 'sync-dot' + (status==='syncing'?' syncing':status==='error'?' error':'');
+}
+function startSync(){
+    unsubscribe = DOC.onSnapshot(doc=>{
+        if(doc.exists && Array.isArray(doc.data().data)){
+            mangaList = doc.data().data.map(x=>({favorite:false,finished:false,owned:false,bought:0,read:0,yomi:'',...x, id:x.id||uid()}));
+        } else {
+            // 初回：シードデータで初期化
+            mangaList = SEED.map(x=>({...x, id:uid()}));
+            saveNow();
+        }
+        render();
+        document.getElementById('loading').style.display='none';
+        setSync('synced');
+    }, err=>{
+        console.error('Firestore error:', err);
+        setSync('error');
+        toast('同期エラー：ローカル表示中', true);
+        if(mangaList.length===0){ mangaList = SEED.map(x=>({...x, id:uid()})); render(); }
+        document.getElementById('loading').style.display='none';
+    });
+}
+async function saveNow(){
+    setSync('syncing');
+    try{
+        await DOC.set({ data: mangaList, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        setSync('synced');
+    }catch(e){
+        console.error('Save error:', e);
+        setSync('error');
+        toast('保存エラー', true);
+    }
+}
+// 連続操作をまとめて保存
+function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); render(); }
+
+// ===== 描画 =====
+function filtered(){
+    const q = toHira(searchQuery.trim().toLowerCase());
+    return mangaList.filter(item=>{
+        if(currentFilter==='own' && !item.owned) return false;
+        if(currentFilter==='fav' && !item.favorite) return false;
+        if(q){
+            const hay = toHira((item.title+' '+(item.yomi||'')).toLowerCase());
+            if(hay.indexOf(q)<0) return false;
+        }
+        return true;
+    }).sort((a,b)=> sortKey(a).localeCompare(sortKey(b),'ja'));
+}
+function render(){
+    // タブのカウント
+    document.getElementById('cntAll').textContent = mangaList.length;
+    document.getElementById('cntOwn').textContent = mangaList.filter(x=>x.owned).length;
+    document.getElementById('cntFav').textContent = mangaList.filter(x=>x.favorite).length;
+
+    const items = filtered();
+    const stats = document.getElementById('stats');
+    const list = document.getElementById('list');
+
+    if(items.length===0){
+        stats.textContent='';
+        list.innerHTML = `<div class="empty"><div class="ei">${searchQuery?'🔍':'📚'}</div><h2>${searchQuery?'見つかりませんでした':'まだ登録がありません'}</h2><p>${searchQuery?'別のキーワードでお試しください':'右上の＋から追加できます'}</p></div>`;
+        return;
+    }
+    stats.textContent = `${items.length}件 表示中`;
+
+    let html='', lastGyo=null;
+    for(const item of items){
+        const g = gyoLabel(item);
+        if(g!==lastGyo){ html += `<div class="group-head"><span class="g">${g}</span><span class="line"></span></div>`; lastGyo=g; }
+        html += cardHtml(item);
+    }
+    list.innerHTML = html;
+}
+function cardHtml(item){
+    const badges = [];
+    if(item.owned) badges.push('<span class="badge own">🛒 購入</span>');
+    if(item.finished) badges.push('<span class="badge done">🏁 完結</span>');
+    const badgeHtml = badges.length ? `<span class="badges">${badges.join('')}</span>` : '';
+    const buyHtml = item.owned ? `
+        <div class="vol">
+            <span class="lbl buy">購入</span>
+            <div class="stepper">
+                <button onclick="stepBought('${item.id}',-1)">−</button>
+                <span class="num buy">${item.bought}</span>
+                <button onclick="stepBought('${item.id}',1)">＋</button>
+            </div>
+        </div>` : '';
+    return `<div class="card">
+        <div class="card-main">
+            <div class="card-title">${escapeHtml(item.title)}${badgeHtml}</div>
+            <div class="vols">
+                <div class="vol">
+                    <span class="lbl">既読</span>
+                    <div class="stepper">
+                        <button onclick="stepRead('${item.id}',-1)">−</button>
+                        <span class="num">${item.read}</span>
+                        <button onclick="stepRead('${item.id}',1)">＋</button>
+                    </div>
+                </div>
+                ${buyHtml}
+            </div>
+        </div>
+        <div class="card-side">
+            <button class="side-btn fav ${item.favorite?'on':''}" onclick="toggleFav('${item.id}')">${item.favorite?'⭐':'☆'}</button>
+            <button class="side-btn" onclick="openEdit('${item.id}')">✏️</button>
+        </div>
+    </div>`;
+}
+
+// ===== 操作 =====
+function find(id){ return mangaList.find(x=>x.id===id); }
+function stepRead(id,d){ const it=find(id); if(!it)return; it.read=Math.max(0,(it.read||0)+d); if(it.owned&&it.bought<it.read) it.bought=it.read; save(); }
+function stepBought(id,d){ const it=find(id); if(!it)return; it.bought=Math.max(0,(it.bought||0)+d); save(); }
+function toggleFav(id){ const it=find(id); if(!it)return; it.favorite=!it.favorite; save(); }
+
+// ===== モーダル =====
+function setToggle(el,on){ el.classList.toggle('on',!!on); }
+function openAdd(){
+    editId=null;
+    document.getElementById('modalTitle').textContent='マンガを追加';
+    document.getElementById('fTitle').value='';
+    document.getElementById('fYomi').value='';
+    document.getElementById('fRead').value='0';
+    document.getElementById('fBought').value='0';
+    setToggle(document.getElementById('tgOwn'),false);
+    setToggle(document.getElementById('tgFav'),false);
+    setToggle(document.getElementById('tgDone'),false);
+    document.getElementById('buyField').classList.remove('show');
+    document.getElementById('deleteBtn').style.display='none';
+    document.getElementById('modal').classList.add('open');
+    setTimeout(()=>document.getElementById('fTitle').focus(),100);
+}
+function openEdit(id){
+    const it=find(id); if(!it)return;
+    editId=id;
+    document.getElementById('modalTitle').textContent='編集';
+    document.getElementById('fTitle').value=it.title;
+    document.getElementById('fYomi').value=it.yomi||'';
+    document.getElementById('fRead').value=it.read||0;
+    document.getElementById('fBought').value=it.bought||0;
+    setToggle(document.getElementById('tgOwn'),it.owned);
+    setToggle(document.getElementById('tgFav'),it.favorite);
+    setToggle(document.getElementById('tgDone'),it.finished);
+    document.getElementById('buyField').classList.toggle('show',it.owned);
+    document.getElementById('deleteBtn').style.display='block';
+    document.getElementById('modal').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+function saveModal(){
+    const title=document.getElementById('fTitle').value.trim();
+    if(!title){ toast('タイトルを入力してください',true); return; }
+    const owned=document.getElementById('tgOwn').classList.contains('on');
+    const read=Math.max(0,parseInt(document.getElementById('fRead').value)||0);
+    let bought=Math.max(0,parseInt(document.getElementById('fBought').value)||0);
+    if(owned && bought<read) bought=read;
+    const data={
+        title,
+        yomi:document.getElementById('fYomi').value.trim(),
+        read, owned,
+        bought: owned?bought:0,
+        favorite:document.getElementById('tgFav').classList.contains('on'),
+        finished:document.getElementById('tgDone').classList.contains('on')
+    };
+    if(editId){ Object.assign(find(editId), data); toast('更新しました'); }
+    else { mangaList.push({id:uid(),...data}); toast('追加しました'); }
+    closeModal();
+    save();
+}
+function deleteCurrent(){
+    if(!editId) return;
+    const it=find(editId);
+    if(!confirm(`「${it?it.title:''}」を削除しますか？`)) return;
+    mangaList = mangaList.filter(x=>x.id!==editId);
+    closeModal();
+    toast('削除しました');
+    save();
+}
+
+// ===== Toast =====
+function toast(msg,isErr){
+    const t=document.getElementById('toast');
+    t.textContent=msg;
+    t.className='toast show'+(isErr?' error':'');
+    setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ===== イベント =====
+document.getElementById('addBtn').onclick=openAdd;
+document.getElementById('modalClose').onclick=closeModal;
+document.getElementById('saveBtn').onclick=saveModal;
+document.getElementById('deleteBtn').onclick=deleteCurrent;
+document.getElementById('syncBtn').onclick=()=>{ setSync('syncing'); saveNow(); toast('同期しました'); };
+document.getElementById('modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+document.getElementById('tgOwn').onclick=function(){
+    this.classList.toggle('on');
+    document.getElementById('buyField').classList.toggle('show',this.classList.contains('on'));
+};
+document.getElementById('tgFav').onclick=function(){ this.classList.toggle('on'); };
+document.getElementById('tgDone').onclick=function(){ this.classList.toggle('on'); };
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    currentFilter=t.dataset.filter;
+    render();
+});
+const searchEl=document.getElementById('search');
+searchEl.addEventListener('input',()=>{
+    searchQuery=searchEl.value;
+    document.getElementById('searchClear').style.display=searchQuery?'block':'none';
+    render();
+});
+document.getElementById('searchClear').onclick=()=>{
+    searchEl.value=''; searchQuery=''; document.getElementById('searchClear').style.display='none'; render(); searchEl.focus();
+};
+
+// ===== 起動 =====
+startSync();
+</script>
+</body>
+</html>
