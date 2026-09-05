@@ -73,6 +73,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
 .ac-item:active,.ac-item.hl{background:var(--glass);}
 .ac-item .sub{font-size:11px;color:var(--text-secondary);margin-top:2px;}
 .ac-note{padding:11px 14px;font-size:12px;color:var(--text-secondary);}
+.num-stepper{display:flex;align-items:center;gap:10px;}
+.num-stepper input{flex:1;min-width:0;text-align:center;}
+.num-stepper button{flex-shrink:0;width:52px;height:52px;border-radius:12px;border:1px solid var(--glass-border);background:var(--glass);color:#fff;font-size:26px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;}
+.num-stepper button:active{background:rgba(255,255,255,0.12);}
 .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;background:var(--glass);border:1px solid var(--glass-border);border-radius:11px;margin-bottom:12px;cursor:pointer;}
 .toggle-row .tl{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;}
 .toggle-row .tl .em{font-size:20px;}
@@ -147,7 +151,11 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
       </div>
       <div class="fg">
         <label>読んでいる巻数</label>
-        <input type="number" id="fRead" min="0" value="0" inputmode="numeric">
+        <div class="num-stepper">
+          <button type="button" onclick="bump('fRead',-1)">−</button>
+          <input type="number" id="fRead" min="0" value="0" inputmode="numeric">
+          <button type="button" onclick="bump('fRead',1)">＋</button>
+        </div>
       </div>
       <div class="toggle-row" id="tgOwn">
         <div class="tl"><span class="em">🛒</span>購入している</div>
@@ -155,7 +163,11 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
       </div>
       <div class="fg buy-field" id="buyField">
         <label>買っている巻数</label>
-        <input type="number" id="fBought" min="0" value="0" inputmode="numeric">
+        <div class="num-stepper">
+          <button type="button" onclick="bump('fBought',-1)">−</button>
+          <input type="number" id="fBought" min="0" value="0" inputmode="numeric">
+          <button type="button" onclick="bump('fBought',1)">＋</button>
+        </div>
       </div>
       <div class="toggle-row" id="tgFav">
         <div class="tl"><span class="em">⭐</span>お気に入り</div>
@@ -571,6 +583,8 @@ function toggleFav(id){ const it=find(id); if(!it)return; it.favorite=!it.favori
 
 // ===== モーダル =====
 function setToggle(el,on){ el.classList.toggle('on',!!on); }
+// 巻数入力の＋/−ボタン（0未満にはしない）
+function bump(id,d){ const el=document.getElementById(id); el.value=Math.max(0,(parseInt(el.value)||0)+d); }
 function openAdd(){
     editId=null;
     document.getElementById('modalTitle').textContent='マンガを追加';
