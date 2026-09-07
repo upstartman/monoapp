@@ -392,48 +392,6 @@
   }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-  /* ===== 楽天ブックス検索 ===== */
-  .book-search-row {
-    display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
-  }
-  .book-search-row input[type="search"] {
-    width: 100%; padding: 10px 12px;
-    background: rgba(255,255,255,.04); border: 1px solid var(--border);
-    color: var(--text); border-radius: 10px; font-size: 14px; font-family: inherit;
-  }
-  .book-search-row input[type="search"]:focus { outline: none; border-color: var(--accent); }
-  .book-search-row .btn { padding: 10px 16px; font-size: 14px; }
-  .book-search-status { margin-top: 8px; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
-  .book-search-results {
-    margin-top: 8px; max-height: 260px; overflow-y: auto;
-    border: 1px solid var(--border); border-radius: 10px;
-    background: rgba(255,255,255,.03);
-  }
-  .bsr-item {
-    display: grid; grid-template-columns: 1fr auto; gap: 8px 12px;
-    align-items: center; padding: 10px 12px; cursor: pointer;
-    transition: background .12s;
-  }
-  .bsr-item + .bsr-item { border-top: 1px solid var(--border); }
-  .bsr-item:hover { background: rgba(124,156,255,.12); }
-  .bsr-item .bsr-main { min-width: 0; }
-  .bsr-item .bsr-title {
-    font-size: 14px; font-weight: 600; color: var(--text);
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  }
-  .bsr-item .bsr-meta { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-  .bsr-item .bsr-dup {
-    display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 700;
-    color: #ffb0b0; background: rgba(255,107,107,.18);
-    border: 1px solid rgba(255,107,107,.3); border-radius: 999px; padding: 1px 7px;
-  }
-  .bsr-item .bsr-right { text-align: right; white-space: nowrap; }
-  .bsr-item .bsr-price {
-    font-family: var(--font-mono); font-weight: 700; font-size: 14px; color: var(--text);
-    display: block;
-  }
-  .bsr-item .bsr-add { font-size: 12px; color: var(--accent); font-weight: 700; }
-
   .book-input-row {
     display: grid; grid-template-columns: 1fr 120px auto;
     gap: 8px; margin-bottom: 8px; align-items: center;
@@ -590,18 +548,11 @@
 
       <div class="expert-only">
         <div class="field">
-          <label>楽天ブックスで検索して追加</label>
-          <div class="book-search-row">
-            <input type="search" id="bookSearchInput" placeholder="🔍 書名で検索…" />
-            <button type="button" id="bookSearchBtn" class="btn btn-secondary">検索</button>
-          </div>
-          <div id="bookSearchStatus" class="book-search-status hidden"></div>
-          <div id="bookSearchResults" class="book-search-results hidden"></div>
-        </div>
-        <div class="field">
           <label>書籍と金額（参考）<span style="color: var(--text-dim); font-weight: 400; font-size: 12px;"> ※集計には申請金額を使用</span></label>
           <div id="bookTitlesList"></div>
           <button type="button" id="addBookTitleBtn" class="btn btn-ghost" style="padding:6px 10px; font-size:12px; margin-top:4px;">+ 書籍を追加</button>
+          <button type="button" id="openBookPickerBtn" class="btn btn-ghost" style="padding:6px 10px; font-size:12px; margin-top:4px; margin-left:6px;">🔍 書籍を検索して追加</button>
+          <div id="bookPickerHint" class="dup-explain hidden" style="margin-top:6px;"></div>
         </div>
         <div id="f_dupWarn" class="dup-warning hidden"></div>
       </div>
@@ -704,10 +655,6 @@ const firebaseConfig = {
   appId: "1:75123432379:web:f606b61809ad728bfac29e"
 };
 const DEFAULT_BUDGETS = { welfit: 50000, expert: 132000 };
-// 楽天ブックスAPI（index.html と同じ公開クライアントキー）
-const RAKUTEN_APP_ID = 'f73e85f4-2fa7-4c54-92f6-bec5df99e574';
-const RAKUTEN_ACCESS_KEY = 'pk_tGwZPVUnMxqhyTKA5UBTZJpqno2UXiMV5eKvBf3zfUp';
-const RAKUTEN_ENDPOINT = 'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404';
 const IMAGE_MAX_EDGE = 1200;
 const IMAGE_JPEG_QUALITY = 0.7;
 const IMAGE_MAX_BYTES = 700 * 1024;
@@ -992,7 +939,7 @@ function renderBookList(filter = "") {
 }
 
 // ===== モーダル =====
-window.closeModal = () => $("modal").classList.remove("show");
+window.closeModal = () => { state.pickerToken = null; $("modal").classList.remove("show"); };
 window.closeImageModal = () => $("imageModal").classList.remove("show");
 window.closeLegacyModal = () => $("legacyModal").classList.remove("show");
 
@@ -1043,91 +990,88 @@ function renderModalBookRows(books) {
   updateBookSum(container, $("bookSumDisplay"));
 }
 
-// ===== 楽天ブックス検索 =====
-function setBookSearchStatus(msg) {
-  const el = $("bookSearchStatus");
+// ===== 書籍検索アプリ（index.html）連携：ピッカー =====
+const BOOK_PICKER_CHANNEL = "welfit-book-picker";
+const BOOK_PICKER_STORAGE = "welfit_bookPickerHandoff";
+let bookPickerBC = null;
+let bookPickerWired = false;
+
+function showBookPickerHint(msg) {
+  const el = $("bookPickerHint");
+  if (!el) return;
   if (!msg) { el.classList.add("hidden"); el.textContent = ""; return; }
   el.textContent = msg;
   el.classList.remove("hidden");
 }
 
-async function searchRakutenBooks(title) {
-  const params = new URLSearchParams({
-    applicationId: RAKUTEN_APP_ID,
-    accessKey: RAKUTEN_ACCESS_KEY,
-    title,
-    hits: 20,
-    page: 1,
-    sort: "standard",
-    outOfStockFlag: 1,
-    formatVersion: 2,
-    format: "json"
-  });
-  const res = await fetch(`${RAKUTEN_ENDPOINT}?${params.toString()}`);
-  if (res.status === 429) throw new Error("アクセスが集中しています。少し待って再検索してください");
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (data.error || data.errors) throw new Error(data.error_description || "検索エラー");
-  return data.Items || [];
-}
-
-function renderBookSearchResults(items) {
-  const box = $("bookSearchResults");
-  box.innerHTML = "";
-  if (!items.length) { box.classList.add("hidden"); setBookSearchStatus("該当する書籍が見つかりませんでした"); return; }
-  setBookSearchStatus(`${items.length}件見つかりました。タップで書籍を追加します`);
-  items.forEach(it => {
-    const title = it.title || "";
-    const price = Number(it.itemPrice || 0);
-    const norm = normalizeTitle(title);
-    const dup = state.expertAll.some(e => getBooks(e).some(eb => normalizeTitle(eb.title) === norm));
-    const meta = [it.author, it.publisherName].filter(Boolean).join(" / ");
-    const row = document.createElement("div");
-    row.className = "bsr-item";
-    row.dataset.title = title;
-    row.dataset.amount = String(price);
-    row.innerHTML = `
-      <div class="bsr-main">
-        <div class="bsr-title">${escapeHtml(title)}${dup ? '<span class="bsr-dup">登録済み</span>' : ""}</div>
-        ${meta ? `<div class="bsr-meta">${escapeHtml(meta)}</div>` : ""}
-      </div>
-      <div class="bsr-right">
-        <span class="bsr-price">${price ? fmtYen(price) : "—"}</span>
-        <span class="bsr-add">＋追加</span>
-      </div>`;
-    box.appendChild(row);
-  });
-  box.classList.remove("hidden");
-}
-
-async function runBookSearch() {
-  const kw = $("bookSearchInput").value.trim();
-  if (!kw) { setBookSearchStatus("書名を入力してください"); return; }
-  $("bookSearchResults").classList.add("hidden");
-  setBookSearchStatus("検索中…");
-  try {
-    const items = await searchRakutenBooks(kw);
-    renderBookSearchResults(items);
-  } catch (err) {
-    console.error(err);
-    setBookSearchStatus("検索に失敗しました: " + err.message);
-  }
-}
-
-// 検索結果から書籍行へ反映（最後の空行を使い、無ければ新規追加）
-function addBookFromSearch(title, amount) {
+// 検索アプリから受け取った本を書籍行へ反映（最後の空行を使い、無ければ新規追加）
+function importPickedBooks(books) {
+  if (!Array.isArray(books) || !books.length) return;
   const container = $("bookTitlesList");
-  const rows = [...container.children];
-  const last = rows[rows.length - 1];
-  const lastTitle = last ? last.querySelector('input[type="text"]').value.trim() : "x";
-  if (last && !lastTitle) {
-    const [t, a] = last.querySelectorAll("input");
-    t.value = title;
-    if (amount) a.value = amount;
-  } else {
-    appendBookRow(container, { title, amount: amount || "" }, bookRowsOnUpdate);
+  let added = 0, skipped = 0;
+  for (const b of books) {
+    const title = String(b.title || "").trim();
+    if (!title) continue;
+    const amount = Number(b.amount || 0);
+    const norm = normalizeTitle(title);
+    // 既に入力欄にある同名はスキップ（二重追加防止）
+    const exists = readBookRows(container).some(r => normalizeTitle(r.title) === norm);
+    if (exists) { skipped++; continue; }
+    const rows = [...container.children];
+    const last = rows[rows.length - 1];
+    const lastTitle = last ? last.querySelector('input[type="text"]').value.trim() : "x";
+    if (last && !lastTitle) {
+      const [t, a] = last.querySelectorAll("input");
+      t.value = title;
+      if (amount) a.value = amount;
+    } else {
+      appendBookRow(container, { title, amount: amount || "" }, bookRowsOnUpdate);
+    }
+    added++;
   }
   bookRowsOnUpdate();
+  showBookPickerHint(`✓ ${added}冊を追加しました${skipped ? `（既存の${skipped}冊はスキップ）` : ""}`);
+}
+
+function handlePickerPayload(data) {
+  if (!data || data.type !== "welfit-books") return;
+  if (!state.pickerToken || data.token !== state.pickerToken) return;
+  if (state.lastPickedToken === data.token) return; // 二重処理防止
+  state.lastPickedToken = data.token;
+  importPickedBooks(data.books);
+  try { localStorage.removeItem(BOOK_PICKER_STORAGE); } catch (e) {}
+}
+
+function consumeStoredHandoff() {
+  try {
+    const raw = localStorage.getItem(BOOK_PICKER_STORAGE);
+    if (raw) handlePickerPayload(JSON.parse(raw));
+  } catch (e) {}
+}
+
+function ensurePickerListeners() {
+  if (bookPickerWired) return;
+  bookPickerWired = true;
+  try {
+    bookPickerBC = new BroadcastChannel(BOOK_PICKER_CHANNEL);
+    bookPickerBC.onmessage = e => handlePickerPayload(e.data);
+  } catch (e) { /* 非対応環境は localStorage フォールバックのみ */ }
+  window.addEventListener("storage", e => {
+    if (e.key === BOOK_PICKER_STORAGE && e.newValue) {
+      try { handlePickerPayload(JSON.parse(e.newValue)); } catch (err) {}
+    }
+  });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) consumeStoredHandoff(); });
+  window.addEventListener("focus", consumeStoredHandoff);
+}
+
+function openBookPicker() {
+  const token = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  state.pickerToken = token;
+  ensurePickerListeners();
+  showBookPickerHint("検索アプリを別タブで開きました。本を選んで「選択した本を追加」を押してください。");
+  const w = window.open(`../index.html?pick=1&t=${encodeURIComponent(token)}`, "_blank");
+  if (!w) alert("ポップアップがブロックされました。ブラウザでこのサイトのポップアップを許可してください。");
 }
 
 function updateAmountHint(kind) {
@@ -1149,10 +1093,7 @@ function openModal(kind, row) {
   document.querySelectorAll(".expert-only").forEach(el => el.style.display = kind === "expert" ? "" : "none");
   $("f_amount").required = true;
   renderModalBookRows(row ? getBooks(row) : []);
-  $("bookSearchInput").value = "";
-  $("bookSearchResults").innerHTML = "";
-  $("bookSearchResults").classList.add("hidden");
-  setBookSearchStatus("");
+  showBookPickerHint("");
   updateAmountHint(kind);
   if (row?.receiptData) {
     $("f_receiptImg").src = row.receiptData;
@@ -1342,14 +1283,7 @@ function bindEvents() {
     bookRowsOnUpdate();
   };
 
-  $("bookSearchBtn").onclick = runBookSearch;
-  $("bookSearchInput").addEventListener("keydown", e => {
-    if (e.key === "Enter") { e.preventDefault(); runBookSearch(); }
-  });
-  $("bookSearchResults").addEventListener("click", e => {
-    const item = e.target.closest(".bsr-item"); if (!item) return;
-    addBookFromSearch(item.dataset.title, Number(item.dataset.amount || 0));
-  });
+  $("openBookPickerBtn").onclick = openBookPicker;
 
   $("useSumBtn").onclick = () => {
     const sum = readBookRows($("bookTitlesList")).reduce((s,b) => s + (b.amount || 0), 0);

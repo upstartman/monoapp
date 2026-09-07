@@ -231,6 +231,15 @@
     let filteredBooks = [];
     let searchStats = {};
 
+    // ===== Welfit連携（書籍ピッカー）モード =====
+    const PICK_PARAMS = new URLSearchParams(location.search);
+    const PICK_MODE = PICK_PARAMS.get('pick') === '1';
+    const PICK_TOKEN = PICK_PARAMS.get('t') || '';
+    const PICK_CHANNEL = 'welfit-book-picker';
+    const PICK_STORAGE = 'welfit_bookPickerHandoff';
+    const pickSelected = new Map(); // key -> {title, amount}
+    const bookKey = b => b.isbn || ('url:' + b.itemUrl);
+
     // ローカルストレージのキー
     const STORAGE_KEYS = {
       keywords: 'bookSearch_keywords',
@@ -243,7 +252,60 @@
       loadSavedData();
       renderKeywordTags();
       updateKeywordCounter();
+      if (PICK_MODE) initPickMode();
     });
+
+    function initPickMode() {
+      // 上部固定バナー
+      const banner = document.createElement('div');
+      banner.id = 'pickBanner';
+      banner.className = 'fixed top-0 inset-x-0 z-50 bg-amber-600 text-white shadow-lg';
+      banner.innerHTML = `
+        <div class="max-w-5xl mx-auto px-4 py-2.5 flex items-center gap-3">
+          <span class="text-sm font-medium flex-1 min-w-0">Welfitに追加する本を選択してください</span>
+          <button id="pickClear" type="button" class="text-sm underline opacity-90 whitespace-nowrap">選択解除</button>
+          <button id="pickConfirm" type="button" class="px-4 py-1.5 bg-white text-amber-700 rounded font-bold text-sm whitespace-nowrap disabled:opacity-50" disabled>選択した本を追加（<span id="pickCount">0</span>冊）</button>
+        </div>`;
+      document.body.prepend(banner);
+      document.body.style.paddingTop = (banner.offsetHeight + 8) + 'px';
+
+      // 結果グリッドのチェック操作（委譲）
+      document.getElementById('resultsGrid').addEventListener('change', e => {
+        const cb = e.target.closest('.pick-cb'); if (!cb) return;
+        const key = cb.dataset.key;
+        if (cb.checked) pickSelected.set(key, { title: cb.dataset.title, amount: Number(cb.dataset.amount || 0) });
+        else pickSelected.delete(key);
+        updatePickBanner();
+      });
+
+      document.getElementById('pickClear').onclick = () => {
+        pickSelected.clear();
+        document.querySelectorAll('.pick-cb').forEach(cb => { cb.checked = false; });
+        updatePickBanner();
+      };
+      document.getElementById('pickConfirm').onclick = sendPickedBooks;
+      updatePickBanner();
+    }
+
+    function updatePickBanner() {
+      const n = pickSelected.size;
+      const cnt = document.getElementById('pickCount');
+      const btn = document.getElementById('pickConfirm');
+      if (cnt) cnt.textContent = n;
+      if (btn) btn.disabled = n === 0;
+    }
+
+    function sendPickedBooks() {
+      const books = [...pickSelected.values()];
+      if (!books.length) return;
+      const payload = { type: 'welfit-books', token: PICK_TOKEN, books, ts: Date.now() };
+      try { const bc = new BroadcastChannel(PICK_CHANNEL); bc.postMessage(payload); bc.close(); } catch (e) {}
+      try { localStorage.setItem(PICK_STORAGE, JSON.stringify(payload)); } catch (e) {}
+      // 閉じられない環境向けにバナーを更新
+      const span = document.querySelector('#pickBanner .flex-1');
+      if (span) span.textContent = `${books.length}冊をWelfitに送信しました。Welfitのタブに戻ってください。`;
+      setTimeout(() => { try { window.close(); } catch (e) {} }, 150);
+    }
 
     function loadSavedData() {
       const savedKeywords = localStorage.getItem(STORAGE_KEYS.keywords);
@@ -724,6 +786,11 @@
                     <span>${escapeHtml(book.salesDate || '不明')}</span>
                   </p>
                 </div>
+                ${PICK_MODE ? `
+                <label class="flex items-center gap-2 mt-2 px-2 py-1.5 rounded bg-amber-50 border border-amber-200 cursor-pointer select-none">
+                  <input type="checkbox" class="pick-cb w-4 h-4 accent-amber-600" data-key="${escapeHtml(bookKey(book))}" data-title="${escapeHtml(book.title || '')}" data-amount="${book.itemPrice || 0}" ${pickSelected.has(bookKey(book)) ? 'checked' : ''}>
+                  <span class="text-sm font-medium text-amber-800">Welfitに追加</span>
+                </label>` : ''}
                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-stone-100">
                   <span class="text-lg font-bold text-amber-700 font-serif-jp">${formatPrice(book.itemPrice)}</span>
                   <a href="${book.itemUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded transition-colors">
