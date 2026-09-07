@@ -109,6 +109,19 @@
   }
   .add-row .btn-ghost { padding: 13px 14px; font-size: 14px; }
 
+  /* ===== 同期中チップ ===== */
+  .loading-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--text-dim); font-weight: 600;
+    margin: 0 0 10px 2px;
+  }
+  .loading-chip::before {
+    content: ""; width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid rgba(168,172,204,.3); border-top-color: var(--accent);
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* ===== エラー表示 ===== */
   .errbar {
     background: rgba(255,107,107,.14); border: 1px solid rgba(255,107,107,.35);
@@ -366,6 +379,8 @@
       <button id="bulkBtn" class="btn btn-ghost" title="スプレッドシートから貼り付けて一括登録">📋 取り込み</button>
     </div>
 
+    <div id="loadingChip" class="loading-chip hidden">同期中…</div>
+
     <div class="table">
       <div class="tr tr-head">
         <div>品物</div>
@@ -466,7 +481,9 @@ import {
   signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, addDoc, updateDoc, serverTimestamp, writeBatch
+  getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, doc, getDoc, getDocs, getDocFromCache, getDocsFromCache,
+  setDoc, deleteDoc, addDoc, updateDoc, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // Wel-fit管理アプリと同じFirebaseプロジェクトを共有（同じGoogleアカウントでログイン可）
@@ -482,15 +499,27 @@ const DEFAULT_LIMIT = 240000;
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+// オフライン/低速回線対策: IndexedDBにローカルキャッシュを持たせる
+// （2回目以降は即表示、圏外でも閲覧可、変更は復帰時に自動同期）
+let db;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  });
+} catch (e) {
+  console.warn('ローカルキャッシュ初期化不可、通常モードで継続:', e);
+  db = getFirestore(app);
+}
 const provider = new GoogleAuthProvider();
 
 const state = {
   user: null,
   year: String(new Date().getFullYear()),
   items: [],
-  limit: DEFAULT_LIMIT
+  limit: DEFAULT_LIMIT,
+  loading: false
 };
+let loadToken = 0;
 
 const $ = id => document.getElementById(id);
 const fmtYen = n => "¥" + Number(n || 0).toLocaleString("ja-JP");
@@ -563,21 +592,55 @@ function buildShipSelects() {
   $("f_shipMonth").innerHTML = ms.join("");
 }
 
+function applyYearDoc(snap) {
+  const yd = snap && snap.exists() ? snap.data() : {};
+  state.limit = Number.isFinite(yd.limit) ? yd.limit : DEFAULT_LIMIT;
+}
+
+function setLoading(on) {
+  state.loading = on;
+  $("loadingChip").classList.toggle("hidden", !on);
+}
+
 async function loadAll() {
   if (!state.user) return;
   const uid = state.user.uid;
+  const year = state.year;
+  const token = ++loadToken;          // 年切替の追い越し対策
+  setLoading(true);
+  render();                           // キャッシュ待ちの間に「読み込み中…」を表示
+
+  // 1) まずローカルキャッシュから即描画（あれば）。電波が悪くても前回内容がすぐ出る
   try {
-    const yearSnap = await getDoc(yearDocRef(uid, state.year));
-    const yd = yearSnap.exists() ? yearSnap.data() : {};
-    state.limit = Number.isFinite(yd.limit) ? yd.limit : DEFAULT_LIMIT;
-    const snap = await getDocs(itemsCol(uid, state.year));
+    const [yc, ic] = await Promise.all([
+      getDocFromCache(yearDocRef(uid, year)).catch(() => null),
+      getDocsFromCache(itemsCol(uid, year)).catch(() => null)
+    ]);
+    if (token === loadToken && (yc || ic)) {
+      if (yc) applyYearDoc(yc);
+      if (ic) state.items = ic.docs.map(d => ({ id: d.id, ...d.data() }));
+      $("limitInput").value = state.limit;
+      render();
+    }
+  } catch (e) { /* キャッシュ無し/未対応は無視してサーバ取得へ */ }
+
+  // 2) サーバから最新を取得して上書き
+  try {
+    const yearSnap = await getDoc(yearDocRef(uid, year));
+    const snap = await getDocs(itemsCol(uid, year));
+    if (token !== loadToken) return;  // 既に別の年へ切り替わっている
+    applyYearDoc(yearSnap);
     state.items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     clearError();
   } catch (err) {
-    showError("読み込み失敗", err);
+    if (token === loadToken) showError("読み込み失敗", err);
+  } finally {
+    if (token === loadToken) {
+      setLoading(false);
+      $("limitInput").value = state.limit;
+      render();
+    }
   }
-  $("limitInput").value = state.limit;
-  render();
 }
 
 function render() {
@@ -602,8 +665,10 @@ function render() {
   });
 
   const body = $("itemRows");
-  body.innerHTML = rows.length ? "" : `<div class="empty">${escapeHtml(state.year)}年のデータはありません<br />
-    <span style="font-size:12px; opacity:.75;">ログイン: ${escapeHtml(state.user?.email || "?")}</span></div>`;
+  body.innerHTML = rows.length ? "" : (state.loading
+    ? `<div class="empty">読み込み中…</div>`
+    : `<div class="empty">${escapeHtml(state.year)}年のデータはありません<br />
+    <span style="font-size:12px; opacity:.75;">ログイン: ${escapeHtml(state.user?.email || "?")}</span></div>`);
   for (const r of rows) {
     const amount = Number(r.amount || 0);
     const buy = buyLabel(r.buyDate);
