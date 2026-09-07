@@ -109,6 +109,15 @@
   }
   .add-row .btn-ghost { padding: 13px 14px; font-size: 14px; }
 
+  /* ===== エラー表示 ===== */
+  .errbar {
+    background: rgba(255,107,107,.14); border: 1px solid rgba(255,107,107,.35);
+    color: #ffb3b3; border-radius: 12px; padding: 11px 14px;
+    font-size: 13px; line-height: 1.6; margin-bottom: 12px;
+    word-break: break-word;
+  }
+  .errbar .code { font-family: var(--font-mono); font-weight: 700; }
+
   /* ===== サインインカード ===== */
   .signin-card {
     background: var(--card); border: 1px solid var(--border);
@@ -326,6 +335,8 @@
     </div>
   </header>
 
+  <div id="errBar" class="errbar hidden"></div>
+
   <div id="signinNotice" class="signin-card">
     <p>Googleでログインすると、ふるさと納税の購入を年別に管理できます。<br />Wel-fit管理アプリと同じアカウントでログインできます。</p>
     <button id="loginBtn2" class="btn btn-primary btn-block">Googleでログイン</button>
@@ -451,7 +462,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, addDoc, updateDoc, serverTimestamp, writeBatch
@@ -482,6 +494,16 @@ const state = {
 
 const $ = id => document.getElementById(id);
 const fmtYen = n => "¥" + Number(n || 0).toLocaleString("ja-JP");
+// エラーは消えるアラートではなく画面に残す（原因コードを確認できるように）
+function showError(prefix, err) {
+  const bar = $("errBar");
+  const code = err?.code ? `<span class="code">[${String(err.code)}]</span> ` : "";
+  bar.innerHTML = `${prefix}: ${code}${escapeHtml(err?.message || String(err))}`;
+  bar.classList.remove("hidden");
+  console.error(prefix, err);
+}
+const clearError = () => $("errBar").classList.add("hidden");
+
 const escapeHtml = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 
 // Wel-fitとは別のサブツリーに保存: users/{uid}/furusato/{year}/items/{itemId}
@@ -550,9 +572,9 @@ async function loadAll() {
     state.limit = Number.isFinite(yd.limit) ? yd.limit : DEFAULT_LIMIT;
     const snap = await getDocs(itemsCol(uid, state.year));
     state.items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    clearError();
   } catch (err) {
-    console.error("読み込み失敗:", err);
-    alert("読み込み失敗: " + err.message);
+    showError("読み込み失敗", err);
   }
   $("limitInput").value = state.limit;
   render();
@@ -580,7 +602,8 @@ function render() {
   });
 
   const body = $("itemRows");
-  body.innerHTML = rows.length ? "" : `<div class="empty">まだ品物が登録されていません</div>`;
+  body.innerHTML = rows.length ? "" : `<div class="empty">${escapeHtml(state.year)}年のデータはありません<br />
+    <span style="font-size:12px; opacity:.75;">ログイン: ${escapeHtml(state.user?.email || "?")}</span></div>`;
   for (const r of rows) {
     const amount = Number(r.amount || 0);
     const buy = buyLabel(r.buyDate);
@@ -843,7 +866,23 @@ async function saveLimit() {
 }
 
 function bindEvents() {
-  const login = () => signInWithPopup(auth, provider).catch(err => alert("ログイン失敗: " + err.message));
+  // モバイルやアプリ内ブラウザではポップアップが開けないことがあるためリダイレクトへ切り替える
+  const POPUP_UNAVAILABLE = [
+    "auth/popup-blocked", "auth/popup-closed-by-user", "auth/cancelled-popup-request",
+    "auth/operation-not-supported-in-this-environment", "auth/web-storage-unsupported"
+  ];
+  const login = async () => {
+    clearError();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      if (POPUP_UNAVAILABLE.includes(err?.code)) {
+        try { await signInWithRedirect(auth, provider); return; }
+        catch (err2) { showError("ログイン失敗", err2); return; }
+      }
+      showError("ログイン失敗", err);
+    }
+  };
   $("loginBtn").onclick = login;
   $("loginBtn2").onclick = login;
   $("logoutBtn").onclick = () => signOut(auth);
@@ -869,6 +908,9 @@ function bindEvents() {
     if (e.target.id === "bulkModal") closeBulkModal();
   });
 }
+
+// リダイレクトでログインした場合の結果（失敗時の原因コードを表示）
+getRedirectResult(auth).catch(err => showError("ログイン失敗", err));
 
 onAuthStateChanged(auth, async user => {
   state.user = user;
