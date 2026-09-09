@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>予算組み合わせ - 楽天ブックス</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Zen Kaku Gothic New', sans-serif; }
+    .font-serif-jp { font-family: 'Noto Serif JP', serif; }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fadeSlideIn 0.5s ease-out both; }
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .animate-spin { animation: spin 1s linear infinite; }
+    .keyword-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      border-radius: 9999px;
+      font-size: 14px;
+      color: #92400e;
+    }
+    .keyword-tag button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fcd34d;
+      color: #92400e;
+      font-size: 12px;
+      line-height: 1;
+    }
+    .keyword-tag button:hover {
+      background: #f59e0b;
+      color: white;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-stone-50 via-amber-50/30 to-stone-100">
+
+  <!-- ヘッダー -->
+  <header class="bg-white/80 backdrop-blur-sm border-b border-stone-200 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-gradient-to-br from-amber-600 to-amber-700 rounded-lg flex items-center justify-center shadow-md">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-stone-800 font-serif-jp">予算組み合わせ</h1>
+          <p class="text-xs text-stone-500">楽天ブックス｜技術書を予算ぴったりに</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <!-- 検索フォーム -->
+    <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 mb-8">
+      <div class="space-y-4">
+        <!-- キーワード入力 -->
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-2">
+            タイトルに含む単語（複数登録可・OR検索）
+            <span id="keywordCounter" class="ml-2 text-amber-600 font-normal">0/10</span>
+          </label>
+          <div class="flex gap-2">
+            <div class="relative flex-1">
+              <input type="text" id="keywordInput" placeholder="単語を入力してEnterまたは追加ボタン" class="w-full pl-10 pr-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-stone-800 placeholder-stone-400" onkeydown="if(event.key==='Enter'){event.preventDefault();addKeyword();}">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+            <button onclick="addKeyword()" id="addKeywordBtn" class="px-4 py-3 bg-amber-100 hover:bg-amber-200 text-amber-700 font-medium rounded-xl transition-colors">
+              追加
+            </button>
+          </div>
+          <!-- キーワードタグ表示エリア -->
+          <div id="keywordTags" class="flex flex-wrap gap-2 mt-3 min-h-[32px]"></div>
+          <p class="text-xs text-stone-400 mt-2">タイトルにいずれかの単語を含む書籍を検索します（OR検索・最大10個）</p>
+        </div>
+
+        <!-- 技術書に絞る -->
+        <div>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="techOnly" class="w-4 h-4 accent-amber-600">
+            <span class="text-sm font-medium text-stone-700">技術書に絞る（コンピュータ・IT）</span>
+          </label>
+          <p class="text-xs text-stone-400 mt-1">楽天ブックスの「パソコン・システム開発」ジャンルに限定します。結果が0件の場合は自動でジャンル指定なしで再検索します。</p>
+        </div>
+
+        <!-- 予算・最大冊数 -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-stone-700 mb-2">予算（目標金額・円）<span class="text-red-500">*</span></label>
+            <input type="number" id="budget" placeholder="例: 5000" min="1" class="w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-stone-800">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-stone-700 mb-2">最大冊数</label>
+            <select id="maxCount" class="w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-stone-800 bg-white">
+              <option value="2">2冊</option>
+              <option value="3">3冊</option>
+              <option value="4">4冊</option>
+              <option value="5" selected>5冊</option>
+            </select>
+          </div>
+        </div>
+        <p class="text-xs text-stone-400">合計金額が「予算 〜 予算+200円」に収まる組み合わせを提案します。</p>
+
+        <!-- 検索・クリアボタン -->
+        <div class="flex gap-2">
+          <button onclick="searchBooks()" id="searchBtn" class="flex-1 py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-medium rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            組み合わせを探す
+          </button>
+          <button onclick="clearAll()" class="px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium rounded-xl transition-colors">
+            クリア
+          </button>
+        </div>
+
+        <!-- 検索時間の目安 -->
+        <p id="searchTimeEstimate" class="text-xs text-stone-400 text-center hidden"></p>
+      </div>
+    </div>
+
+    <!-- 進捗表示 -->
+    <div id="progressContainer" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl hidden">
+      <div class="flex items-center gap-3 mb-2">
+        <svg class="w-5 h-5 animate-spin text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <p id="progressMessage" class="text-blue-700"></p>
+      </div>
+      <div class="w-full bg-blue-200 rounded-full h-2">
+        <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- 検索統計 -->
+    <div id="statsContainer" class="mb-6 p-4 bg-gray-100 border border-gray-300 rounded-xl hidden">
+      <h3 class="font-bold text-gray-700 mb-2">📊 検索統計</h3>
+      <div id="statsContent" class="text-sm text-gray-600 font-mono"></div>
+    </div>
+
+    <!-- エラー表示 -->
+    <div id="errorContainer" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 hidden">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <div>
+          <p id="errorMessage" class="font-medium"></p>
+          <p id="errorDetail" class="text-sm mt-1"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 結果ヘッダー -->
+    <div id="resultsHeader" class="mb-6 hidden">
+      <p class="text-stone-600" id="resultsCount"></p>
+      <p class="text-xs text-stone-400" id="resultsInfo"></p>
+    </div>
+
+    <!-- 組み合わせ結果 -->
+    <div id="combinationsContainer" class="space-y-6"></div>
+
+    <!-- 初期状態 -->
+    <div id="initialState" class="text-center py-16">
+      <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-100 to-amber-200 rounded-full mb-6">
+        <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+        </svg>
+      </div>
+      <h2 class="text-xl font-bold text-stone-700 mb-2 font-serif-jp">予算にぴったりの組み合わせを探しましょう</h2>
+      <p class="text-stone-500">単語・予算・最大冊数を指定して検索できます</p>
+      <p class="text-sm text-stone-400 mt-2">合計金額が「予算 〜 予算+200円」に収まる候補を提案します</p>
+    </div>
+
+    <!-- 結果なし -->
+    <div id="noResults" class="text-center py-16 hidden">
+      <svg class="w-16 h-16 text-stone-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+      </svg>
+      <p id="noResultsMessage" class="text-stone-500">条件に合う組み合わせが見つかりませんでした。単語を変える／最大冊数を増やしてお試しください</p>
+    </div>
+  </main>
+
+  <!-- フッター -->
+  <footer class="border-t border-stone-200 bg-white/50 mt-12">
+    <div class="max-w-6xl mx-auto px-4 py-6 text-center text-sm text-stone-500">
+      <p>楽天ブックス検索APIを使用しています</p>
+    </div>
+  </footer>
+
+  <script>
+    // APIキー（埋め込み）
+    const APP_ID = 'f73e85f4-2fa7-4c54-92f6-bec5df99e574';
+    const ACCESS_KEY = 'pk_tGwZPVUnMxqhyTKA5UBTZJpqno2UXiMV5eKvBf3zfUp';
+
+    // 設定
+    const MAX_KEYWORDS = 10;
+    const HITS_PER_PAGE = 30;
+    const PAGES_PER_KEYWORD = 3;        // 各キーワードで3ページ取得（最大90件）
+    const API_WAIT_MS = 1200;           // 通常の待機時間（1.2秒）
+    const RATE_LIMIT_WAIT_MS = 5000;    // 429エラー時の待機時間（5秒）
+    const MAX_RETRIES = 3;              // 最大リトライ回数
+    const TECH_GENRE_ID = '001005';     // 楽天ブックス「パソコン・システム開発」ジャンル
+    const BUDGET_TOLERANCE = 200;       // 予算の許容上振れ（円）
+
+    // グローバル変数
+    let keywords = [];
+    let allBooks = [];
+    let searchStats = {};
+
+    // ローカルストレージのキー
+    const STORAGE_KEYS = {
+      keywords: 'bookBudget_keywords',
+      budget: 'bookBudget_budget',
+      maxCount: 'bookBudget_maxCount',
+      techOnly: 'bookBudget_techOnly'
+    };
+
+    // 初期化
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSavedData();
+      renderKeywordTags();
+      updateKeywordCounter();
+    });
+
+    function loadSavedData() {
+      const savedKeywords = localStorage.getItem(STORAGE_KEYS.keywords);
+      if (savedKeywords) {
+        try { keywords = JSON.parse(savedKeywords).slice(0, MAX_KEYWORDS); } catch (e) { keywords = []; }
+      }
+
+      const savedBudget = localStorage.getItem(STORAGE_KEYS.budget);
+      if (savedBudget) document.getElementById('budget').value = savedBudget;
+
+      const savedMaxCount = localStorage.getItem(STORAGE_KEYS.maxCount);
+      if (savedMaxCount) document.getElementById('maxCount').value = savedMaxCount;
+
+      // 技術書チェックは既定ON。保存値があればそれを優先。
+      const savedTech = localStorage.getItem(STORAGE_KEYS.techOnly);
+      document.getElementById('techOnly').checked = savedTech === null ? true : savedTech === 'true';
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEYS.keywords, JSON.stringify(keywords));
+      localStorage.setItem(STORAGE_KEYS.budget, document.getElementById('budget').value);
+      localStorage.setItem(STORAGE_KEYS.maxCount, document.getElementById('maxCount').value);
+      localStorage.setItem(STORAGE_KEYS.techOnly, document.getElementById('techOnly').checked);
+    }
+
+    function updateKeywordCounter() {
+      const counter = document.getElementById('keywordCounter');
+      const addBtn = document.getElementById('addKeywordBtn');
+      const input = document.getElementById('keywordInput');
+      const estimate = document.getElementById('searchTimeEstimate');
+
+      counter.textContent = `${keywords.length}/${MAX_KEYWORDS}`;
+
+      if (keywords.length >= MAX_KEYWORDS) {
+        counter.classList.add('text-red-500');
+        counter.classList.remove('text-amber-600');
+        addBtn.disabled = true;
+        addBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        input.disabled = true;
+        input.placeholder = `単語は最大${MAX_KEYWORDS}個までです`;
+      } else {
+        counter.classList.remove('text-red-500');
+        counter.classList.add('text-amber-600');
+        addBtn.disabled = false;
+        addBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        input.disabled = false;
+        input.placeholder = '単語を入力してEnterまたは追加ボタン';
+      }
+
+      if (keywords.length > 0) {
+        const totalCalls = keywords.length * PAGES_PER_KEYWORD;
+        const estimatedSeconds = Math.ceil(totalCalls * API_WAIT_MS / 1000);
+        estimate.textContent = `検索時間の目安: 約${estimatedSeconds}秒（${keywords.length}単語 × ${PAGES_PER_KEYWORD}ページ = ${totalCalls}回のAPI呼び出し）`;
+        estimate.classList.remove('hidden');
+      } else {
+        estimate.classList.add('hidden');
+      }
+    }
+
+    function addKeyword() {
+      if (keywords.length >= MAX_KEYWORDS) return;
+
+      const input = document.getElementById('keywordInput');
+      const keyword = input.value.trim();
+
+      if (keyword && !keywords.includes(keyword)) {
+        keywords.push(keyword);
+        input.value = '';
+        renderKeywordTags();
+        updateKeywordCounter();
+        saveData();
+      }
+    }
+
+    function removeKeyword(index) {
+      keywords.splice(index, 1);
+      renderKeywordTags();
+      updateKeywordCounter();
+      saveData();
+    }
+
+    function renderKeywordTags() {
+      const container = document.getElementById('keywordTags');
+
+      if (keywords.length === 0) {
+        container.innerHTML = '<span class="text-stone-400 text-sm">単語を追加してください</span>';
+        return;
+      }
+
+      container.innerHTML = keywords.map((keyword, index) => `
+        <span class="keyword-tag">
+          ${escapeHtml(keyword)}
+          <button onclick="removeKeyword(${index})" title="削除">×</button>
+        </span>
+      `).join('');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+    }
+
+    function formatPrice(price) {
+      return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(price || 0);
+    }
+
+    function clearAll() {
+      keywords = [];
+      document.getElementById('keywordInput').value = '';
+      document.getElementById('budget').value = '';
+      document.getElementById('maxCount').value = '5';
+      document.getElementById('techOnly').checked = true;
+      renderKeywordTags();
+      updateKeywordCounter();
+      saveData();
+
+      allBooks = [];
+      document.getElementById('combinationsContainer').innerHTML = '';
+      document.getElementById('resultsHeader').classList.add('hidden');
+      document.getElementById('noResults').classList.add('hidden');
+      document.getElementById('initialState').classList.remove('hidden');
+      document.getElementById('statsContainer').classList.add('hidden');
+      hideError();
+    }
+
+    function showError(message, detail = '') {
+      const container = document.getElementById('errorContainer');
+      document.getElementById('errorMessage').textContent = message;
+      document.getElementById('errorDetail').textContent = detail;
+      container.classList.remove('hidden');
+    }
+
+    function hideError() {
+      document.getElementById('errorContainer').classList.add('hidden');
+    }
+
+    function showProgress(message, percent) {
+      const container = document.getElementById('progressContainer');
+      document.getElementById('progressMessage').textContent = message;
+      document.getElementById('progressBar').style.width = `${percent}%`;
+      container.classList.remove('hidden');
+    }
+
+    function hideProgress() {
+      document.getElementById('progressContainer').classList.add('hidden');
+    }
+
+    function showStats(stats) {
+      const container = document.getElementById('statsContainer');
+      const content = document.getElementById('statsContent');
+
+      let html = `
+        <div>API呼び出し: 成功 ${stats.successCount}回 / リトライ ${stats.retryCount}回</div>
+        <div>取得書籍数（重複含む）: ${stats.totalFetched}件</div>
+        <div>ユニーク書籍数（ISBN重複除去後）: ${stats.uniqueCount}件</div>
+        <div>ジャンル絞り込み: ${stats.genreLabel}</div>
+        <div class="mt-2 text-xs">単語別取得数:</div>
+      `;
+
+      for (const [kw, info] of Object.entries(stats.keywordResults)) {
+        if (info.success) {
+          html += `<div class="ml-2 text-green-700">✅「${escapeHtml(kw)}」: ${info.count}件（${info.pages}ページ）</div>`;
+        } else {
+          html += `<div class="ml-2 text-red-600">❌「${escapeHtml(kw)}」: ${info.error}</div>`;
+        }
+      }
+
+      content.innerHTML = html;
+      container.classList.remove('hidden');
+    }
+
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // API呼び出し（1ページ・リトライ付き）
+    async function fetchPage(keyword, page, genreId) {
+      const paramsObj = {
+        applicationId: APP_ID,
+        accessKey: ACCESS_KEY,
+        title: keyword,
+        hits: HITS_PER_PAGE,
+        page: page,
+        sort: 'standard',
+        outOfStockFlag: 1,
+        formatVersion: 2,
+        format: 'json'
+      };
+      if (genreId) paramsObj.booksGenreId = genreId;
+
+      const params = new URLSearchParams(paramsObj);
+      const url = `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
+
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 1) {
+            searchStats.retryCount++;
+          }
+
+          const response = await fetch(url);
+
+          if (response.status === 429) {
+            if (attempt < MAX_RETRIES) {
+              await wait(RATE_LIMIT_WAIT_MS);
+              continue;
+            }
+            return { success: false, items: [], error: 'レート制限', hasMore: false };
+          }
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          if (data.error || data.errors) {
+            throw new Error(data.error_description || data.errors?.errorMessage || 'API Error');
+          }
+
+          const items = data.Items || [];
+          const hasMore = page < (data.pageCount || 1) && items.length === HITS_PER_PAGE;
+
+          return { success: true, items, hasMore };
+
+        } catch (err) {
+          if (attempt < MAX_RETRIES) {
+            await wait(RATE_LIMIT_WAIT_MS);
+            continue;
+          }
+          return { success: false, items: [], error: err.message, hasMore: false };
+        }
+      }
+
+      return { success: false, items: [], error: 'リトライ上限', hasMore: false };
+    }
+
+    // 全キーワードを取得してISBN重複除去したプールを返す
+    async function fetchPool(genreId) {
+      const booksMap = new Map();
+      const totalCalls = keywords.length * PAGES_PER_KEYWORD;
+      let currentCall = 0;
+
+      for (let i = 0; i < keywords.length; i++) {
+        const keyword = keywords[i];
+        let keywordTotal = 0;
+        let pagesLoaded = 0;
+        let hasError = false;
+        let errorMsg = '';
+
+        for (let page = 1; page <= PAGES_PER_KEYWORD; page++) {
+          currentCall++;
+          const percent = Math.round((currentCall / totalCalls) * 100);
+          showProgress(`検索中... 「${keyword}」 ページ${page}/${PAGES_PER_KEYWORD} (${currentCall}/${totalCalls})`, percent);
+
+          const result = await fetchPage(keyword, page, genreId);
+
+          if (result.success) {
+            searchStats.successCount++;
+            keywordTotal += result.items.length;
+            pagesLoaded++;
+
+            for (const book of result.items) {
+              const key = book.isbn || `url:${book.itemUrl}`;
+              if (!booksMap.has(key)) {
+                booksMap.set(key, book);
+              }
+            }
+
+            if (!result.hasMore) {
+              currentCall += (PAGES_PER_KEYWORD - page);
+              break;
+            }
+          } else {
+            hasError = true;
+            errorMsg = result.error;
+            currentCall += (PAGES_PER_KEYWORD - page);
+            break;
+          }
+
+          if (page < PAGES_PER_KEYWORD || i < keywords.length - 1) {
+            await wait(API_WAIT_MS);
+          }
+        }
+
+        searchStats.totalFetched += keywordTotal;
+
+        if (hasError && keywordTotal === 0) {
+          searchStats.keywordResults[keyword] = { success: false, error: errorMsg };
+        } else {
+          searchStats.keywordResults[keyword] = { success: true, count: keywordTotal, pages: pagesLoaded };
+        }
+      }
+
+      return Array.from(booksMap.values());
+    }
+
+    // 書籍検索 → 組み合わせ計算
+    async function searchBooks() {
+      hideError();
+      hideProgress();
+
+      if (keywords.length === 0) {
+        showError('単語を1つ以上追加してください');
+        return;
+      }
+
+      const budget = parseInt(document.getElementById('budget').value, 10);
+      if (!Number.isFinite(budget) || budget <= 0) {
+        showError('予算を正しく入力してください', '1円以上の金額を入力してください');
+        return;
+      }
+
+      const maxCount = parseInt(document.getElementById('maxCount').value, 10) || 5;
+      const techOnly = document.getElementById('techOnly').checked;
+
+      saveData();
+
+      const btn = document.getElementById('searchBtn');
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        検索中...
+      `;
+
+      document.getElementById('initialState').classList.add('hidden');
+      document.getElementById('statsContainer').classList.add('hidden');
+      document.getElementById('resultsHeader').classList.add('hidden');
+      document.getElementById('noResults').classList.add('hidden');
+      document.getElementById('combinationsContainer').innerHTML = '';
+
+      searchStats = {
+        successCount: 0,
+        retryCount: 0,
+        totalFetched: 0,
+        uniqueCount: 0,
+        genreLabel: techOnly ? '技術書（001005）' : 'なし',
+        keywordResults: {}
+      };
+
+      try {
+        let pool = await fetchPool(techOnly ? TECH_GENRE_ID : '');
+
+        // 技術書ジャンルで0件なら、ジャンル指定なしで自動フォールバック
+        let fellBack = false;
+        if (techOnly && pool.length === 0) {
+          searchStats.keywordResults = {};
+          searchStats.genreLabel = 'なし（技術書ジャンルで0件のため自動解除）';
+          fellBack = true;
+          pool = await fetchPool('');
+        }
+
+        hideProgress();
+
+        allBooks = pool;
+        allBooks.sort((a, b) => (a.isbn || '').localeCompare(b.isbn || ''));
+        searchStats.uniqueCount = allBooks.length;
+
+        showStats(searchStats);
+
+        if (allBooks.length === 0) {
+          showNoResults('該当する書籍が見つかりませんでした。単語を変えてお試しください。');
+          return;
+        }
+
+        const combinations = findCombinations(allBooks, budget, maxCount, BUDGET_TOLERANCE);
+        displayCombinations(combinations, budget, maxCount, fellBack);
+      } catch (err) {
+        hideProgress();
+        showError('検索中にエラーが発生しました', err.message);
+      } finally {
+        resetButton();
+      }
+    }
+
+    function showNoResults(message) {
+      document.getElementById('noResultsMessage').textContent = message;
+      document.getElementById('combinationsContainer').innerHTML = '';
+      document.getElementById('resultsHeader').classList.add('hidden');
+      document.getElementById('noResults').classList.remove('hidden');
+    }
+
+    function resetButton() {
+      const btn = document.getElementById('searchBtn');
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+        組み合わせを探す
+      `;
+    }
+
+    // ===== 組み合わせエンジン（純粋関数） =====
+    // books: [{itemPrice, isbn, itemUrl, ...}], target: 予算, maxCount: 最大冊数
+    // 合計が target 〜 target+tolerance に収まる組み合わせを返す（上位20件）
+    function findCombinations(books, target, maxCount, tolerance = 200) {
+      const bookId = (b) => b.isbn || ('url:' + b.itemUrl);
+
+      const pool = books
+        .filter(b => {
+          const p = Number(b.itemPrice);
+          return Number.isFinite(p) && p > 0 && p <= target + tolerance;
+        })
+        .slice()
+        .sort((a, b) => Number(a.itemPrice) - Number(b.itemPrice));
+
+      const results = [];
+      const CAP = 500;
+      const chosen = [];
+
+      const STOP = {};
+      function dfs(start, sum) {
+        if (sum >= target && sum <= target + tolerance) {
+          results.push({ books: chosen.slice(), total: sum, diff: sum - target });
+          if (results.length >= CAP) throw STOP;
+        }
+        if (chosen.length === maxCount) return;
+        for (let i = start; i < pool.length; i++) {
+          const price = Number(pool[i].itemPrice);
+          if (sum + price > target + tolerance) break; // 昇順なので枝刈り
+          chosen.push(pool[i]);
+          dfs(i + 1, sum + price);
+          chosen.pop();
+        }
+      }
+
+      try {
+        dfs(0, 0);
+      } catch (e) {
+        if (e !== STOP) throw e;
+      }
+
+      results.sort((a, b) => (a.diff - b.diff) || (a.books.length - b.books.length));
+      return results.slice(0, 20);
+    }
+    // テスト用にwindowへ公開
+    if (typeof window !== 'undefined') window.findCombinations = findCombinations;
+
+    function displayCombinations(combinations, budget, maxCount, fellBack) {
+      const container = document.getElementById('combinationsContainer');
+      const header = document.getElementById('resultsHeader');
+      const countEl = document.getElementById('resultsCount');
+      const infoEl = document.getElementById('resultsInfo');
+
+      if (!combinations || combinations.length === 0) {
+        showNoResults('条件に合う組み合わせが見つかりませんでした。単語を変える／最大冊数を増やしてお試しください');
+        return;
+      }
+
+      document.getElementById('noResults').classList.add('hidden');
+      header.classList.remove('hidden');
+      countEl.innerHTML = `<span class="font-bold text-amber-700">${combinations.length}</span> 件の組み合わせ候補が見つかりました`;
+      let info = `予算 ${formatPrice(budget)}（${formatPrice(budget)}〜${formatPrice(budget + BUDGET_TOLERANCE)}）／最大${maxCount}冊 ／ 検索対象 ${allBooks.length}冊`;
+      if (fellBack) info += ' ／ ※技術書ジャンルで0件だったためジャンル指定を自動解除しました';
+      infoEl.textContent = info;
+
+      container.innerHTML = combinations.map((combo, index) => {
+        const cardsHtml = combo.books.map((book, i) => createBookCard(book, i)).join('');
+        return `
+          <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 animate-fade-in" style="animation-delay: ${Math.min(index * 0.04, 0.5)}s">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-4 border-b border-stone-100">
+              <div class="flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-bold text-sm">${index + 1}</span>
+                <span class="text-sm text-stone-500">${combo.books.length}冊の組み合わせ</span>
+              </div>
+              <div class="text-right">
+                <div class="text-2xl font-bold text-amber-700 font-serif-jp">${formatPrice(combo.total)}</div>
+                <div class="text-sm ${combo.diff === 0 ? 'text-green-600 font-semibold' : 'text-stone-500'}">
+                  ${combo.diff === 0 ? '予算ぴったり！' : `差額 +${formatPrice(combo.diff)}`}
+                </div>
+              </div>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2">
+              ${cardsHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function createBookCard(book, index) {
+      const imageHtml = book.largeImageUrl
+        ? `<img src="${book.largeImageUrl}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover" style="min-height: 160px" loading="lazy">`
+        : `<div class="w-full h-40 flex items-center justify-center">
+            <svg class="w-10 h-10 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+            </svg>
+          </div>`;
+
+      return `
+        <div class="group animate-fade-in" style="animation-delay: ${Math.min(index * 0.02, 0.5)}s">
+          <div class="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-stone-100">
+            <div class="flex">
+              <div class="relative w-28 flex-shrink-0 bg-gradient-to-br from-stone-100 to-stone-200">
+                ${imageHtml}
+              </div>
+              <div class="flex-1 p-4 flex flex-col">
+                <h3 class="font-bold text-stone-800 line-clamp-2 mb-2 group-hover:text-amber-700 transition-colors font-serif-jp">
+                  ${escapeHtml(book.title)}
+                </h3>
+                <div class="space-y-1 text-sm text-stone-600 flex-1">
+                  <p class="flex items-center gap-2">
+                    <span class="text-stone-400 text-xs w-14">著者</span>
+                    <span class="font-medium truncate">${escapeHtml(book.author || '不明')}</span>
+                  </p>
+                  <p class="flex items-center gap-2">
+                    <span class="text-stone-400 text-xs w-14">出版社</span>
+                    <span class="truncate">${escapeHtml(book.publisherName || '不明')}</span>
+                  </p>
+                  <p class="flex items-center gap-2">
+                    <span class="text-stone-400 text-xs w-14">発売日</span>
+                    <span>${escapeHtml(book.salesDate || '不明')}</span>
+                  </p>
+                </div>
+                <div class="flex items-center justify-between mt-3 pt-3 border-t border-stone-100">
+                  <span class="text-lg font-bold text-amber-700 font-serif-jp">${formatPrice(book.itemPrice)}</span>
+                  <a href="${book.itemUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded transition-colors">
+                    購入する
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
