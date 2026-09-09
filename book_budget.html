@@ -413,7 +413,7 @@
         if (info.success) {
           html += `<div class="ml-2 text-green-700">✅「${escapeHtml(kw)}」: ${info.count}件（${info.pages}ページ）</div>`;
         } else {
-          html += `<div class="ml-2 text-red-600">❌「${escapeHtml(kw)}」: ${info.error}</div>`;
+          html += `<div class="ml-2 text-red-600">❌「${escapeHtml(kw)}」: ${escapeHtml(info.error)}</div>`;
         }
       }
 
@@ -597,6 +597,11 @@
         // 技術書ジャンルで0件なら、ジャンル指定なしで自動フォールバック
         let fellBack = false;
         if (techOnly && pool.length === 0) {
+          // 2パス目の統計が合算されないよう、実効パスの数値へリセット
+          searchStats.successCount = 0;
+          searchStats.retryCount = 0;
+          searchStats.totalFetched = 0;
+          searchStats.uniqueCount = 0;
           searchStats.keywordResults = {};
           searchStats.genreLabel = 'なし（技術書ジャンルで0件のため自動解除）';
           fellBack = true;
@@ -646,9 +651,11 @@
 
     // ===== 組み合わせエンジン（純粋関数） =====
     // books: [{itemPrice, isbn, itemUrl, ...}], target: 予算, maxCount: 最大冊数
-    // 合計が target 〜 target+tolerance に収まる組み合わせを返す（上位20件）
+    // 合計が target 〜 target+tolerance に収まる組み合わせを返す（最良20件）
+    // 探索は上限/下限の両枝刈り + best-K保持 + 訪問ノード上限で有界。
     function findCombinations(books, target, maxCount, tolerance = 200) {
-      const bookId = (b) => b.isbn || ('url:' + b.itemUrl);
+      const K = 20;               // 保持する最良候補数
+      const NODE_LIMIT = 3000000; // 訪問ノードのハードリミット（安全網）
 
       const pool = books
         .filter(b => {
@@ -658,22 +665,52 @@
         .slice()
         .sort((a, b) => Number(a.itemPrice) - Number(b.itemPrice));
 
-      const results = [];
-      const CAP = 500;
-      const chosen = [];
+      const n = pool.length;
+      const price = pool.map(b => Number(b.itemPrice));
 
+      // suffixSum[i] = pool[i..n-1] の価格合計（昇順なので末尾ほど高額）
+      const suffixSum = new Array(n + 1).fill(0);
+      for (let i = n - 1; i >= 0; i--) suffixSum[i] = suffixSum[i + 1] + price[i];
+
+      // start以降から slots 冊を選んだときの「取りうる最大追加額」（admissibleな上界）
+      // 昇順配列なので末尾 slots 冊が最大。start と末尾の重なりを考慮。
+      const maxAdd = (start, slots) => {
+        if (slots <= 0 || start >= n) return 0;
+        const from = Math.max(start, n - slots);
+        return suffixSum[from];
+      };
+
+      // best-K 固定サイズ保持（比較キー: diff昇順, 冊数昇順）
+      const results = [];
+      const isWorse = (a, b) => (a.diff > b.diff) || (a.diff === b.diff && a.count > b.count);
+      function offer(chosen, sum) {
+        const cand = { books: chosen.slice(), total: sum, diff: sum - target, count: chosen.length };
+        if (results.length < K) { results.push(cand); return; }
+        // 最悪要素を探して置き換え
+        let worstIdx = 0;
+        for (let i = 1; i < results.length; i++) if (isWorse(results[i], results[worstIdx])) worstIdx = i;
+        if (isWorse(results[worstIdx], cand)) results[worstIdx] = cand;
+      }
+
+      const chosen = [];
+      let nodes = 0;
       const STOP = {};
       function dfs(start, sum) {
+        if (++nodes > NODE_LIMIT) throw STOP; // 安全網：その時点の最良を返す
+
         if (sum >= target && sum <= target + tolerance) {
-          results.push({ books: chosen.slice(), total: sum, diff: sum - target });
-          if (results.length >= CAP) throw STOP;
+          offer(chosen, sum);
         }
         if (chosen.length === maxCount) return;
-        for (let i = start; i < pool.length; i++) {
-          const price = Number(pool[i].itemPrice);
-          if (sum + price > target + tolerance) break; // 昇順なので枝刈り
+
+        // 下限枝刈り：残りスロットで最大額を足しても target に届かないなら打ち切り
+        const slots = maxCount - chosen.length;
+        if (sum + maxAdd(start, slots) < target) return;
+
+        for (let i = start; i < n; i++) {
+          if (sum + price[i] > target + tolerance) break; // 上限枝刈り（昇順）
           chosen.push(pool[i]);
-          dfs(i + 1, sum + price);
+          dfs(i + 1, sum + price[i]);
           chosen.pop();
         }
       }
@@ -684,8 +721,8 @@
         if (e !== STOP) throw e;
       }
 
-      results.sort((a, b) => (a.diff - b.diff) || (a.books.length - b.books.length));
-      return results.slice(0, 20);
+      results.sort((a, b) => (a.diff - b.diff) || (a.count - b.count));
+      return results;
     }
     // テスト用にwindowへ公開
     if (typeof window !== 'undefined') window.findCombinations = findCombinations;
@@ -734,7 +771,7 @@
 
     function createBookCard(book, index) {
       const imageHtml = book.largeImageUrl
-        ? `<img src="${book.largeImageUrl}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover" style="min-height: 160px" loading="lazy">`
+        ? `<img src="${escapeHtml(book.largeImageUrl)}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover" style="min-height: 160px" loading="lazy">`
         : `<div class="w-full h-40 flex items-center justify-center">
             <svg class="w-10 h-10 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
@@ -768,7 +805,7 @@
                 </div>
                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-stone-100">
                   <span class="text-lg font-bold text-amber-700 font-serif-jp">${formatPrice(book.itemPrice)}</span>
-                  <a href="${book.itemUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded transition-colors">
+                  <a href="${escapeHtml(book.itemUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded transition-colors">
                     購入する
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
