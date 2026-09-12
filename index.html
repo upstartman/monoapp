@@ -110,6 +110,10 @@
           </div>
         </div>
         <p class="text-xs text-stone-400">※価格フィルターは検索結果取得後に適用されます</p>
+        <label class="flex items-center gap-2 text-sm text-stone-700 cursor-pointer select-none">
+          <input type="checkbox" id="excludeIneligible" onchange="onToggleExclude()" class="w-4 h-4 accent-amber-600" checked>
+          対象外区分（日本図書コード）の書籍を除外する
+        </label>
         
         <!-- 検索・クリアボタン -->
         <div class="flex gap-2">
@@ -244,7 +248,8 @@
     const STORAGE_KEYS = {
       keywords: 'bookSearch_keywords',
       minPrice: 'bookSearch_minPrice',
-      maxPrice: 'bookSearch_maxPrice'
+      maxPrice: 'bookSearch_maxPrice',
+      excludeIneligible: 'bookSearch_excludeIneligible'
     };
 
     // 初期化
@@ -322,12 +327,18 @@
       if (savedMaxPrice) {
         document.getElementById('maxPrice').value = savedMaxPrice;
       }
+
+      const savedExclude = localStorage.getItem(STORAGE_KEYS.excludeIneligible);
+      const excludeCb = document.getElementById('excludeIneligible');
+      if (excludeCb && savedExclude === 'false') excludeCb.checked = false;
     }
 
     function saveData() {
       localStorage.setItem(STORAGE_KEYS.keywords, JSON.stringify(keywords));
       localStorage.setItem(STORAGE_KEYS.minPrice, document.getElementById('minPrice').value);
       localStorage.setItem(STORAGE_KEYS.maxPrice, document.getElementById('maxPrice').value);
+      const excludeCb = document.getElementById('excludeIneligible');
+      if (excludeCb) localStorage.setItem(STORAGE_KEYS.excludeIneligible, excludeCb.checked);
     }
 
     function updateKeywordCounter() {
@@ -650,8 +661,11 @@
       });
       
       searchStats.uniqueCount = allBooks.length;
-      
-      // 価格フィルタリング
+
+      // 日本図書コード（Cコード）を取得して対象外を判定
+      await annotateCcodes();
+
+      // 価格フィルタリング（＋対象外除外）
       applyPriceFilterAndDisplay();
       
       // 統計表示
@@ -660,16 +674,74 @@
       resetButton();
     }
 
+    // ===== 日本図書コード（Cコード）対象外の判定・除外 =====
+    const EXCLUDE_D1 = new Set(['5','6','7','8']);           // 1桁目: 販売対象
+    const EXCLUDE_D2 = new Set(['4','7','8','9']);           // 2桁目: 発行形態
+    const EXCLUDE_CONTENT = new Set(['14','15','16','26','70','71','72','73','74','75','76','77','79','92','93','97']); // 3-4桁目: 内容
+    function isExcludedCcode(c) {
+      if (!c) return false;
+      const s = String(c).replace(/[^0-9]/g, '');
+      if (s.length < 4) return false;
+      return EXCLUDE_D1.has(s[0]) || EXCLUDE_D2.has(s[1]) || EXCLUDE_CONTENT.has(s.slice(2, 4));
+    }
+
+    // openBDでISBN群のCコードを一括取得（ONIX Subject の SubjectSchemeIdentifier==='78'）
+    async function fetchCcodes(isbns) {
+      const map = new Map();
+      const uniq = [...new Set(isbns.filter(Boolean))];
+      for (let i = 0; i < uniq.length; i += 100) {
+        const chunk = uniq.slice(i, i + 100);
+        try {
+          const res = await fetch('https://api.openbd.jp/v1/get?isbn=' + chunk.join(','));
+          if (!res.ok) continue;
+          const arr = await res.json();
+          for (const rec of arr) {
+            if (!rec) continue;
+            const isbn = rec.summary && rec.summary.isbn;
+            const subs = (rec.onix && rec.onix.DescriptiveDetail && rec.onix.DescriptiveDetail.Subject) || [];
+            const cc = subs.find(x => x.SubjectSchemeIdentifier === '78');
+            if (isbn && cc && cc.SubjectCode) map.set(isbn, String(cc.SubjectCode));
+          }
+        } catch (e) { /* 不達は無視（fail-open） */ }
+      }
+      return map;
+    }
+
+    // allBooks 各件に ccode / excluded を注釈。不明(null)は excluded=false（表示）
+    async function annotateCcodes() {
+      try {
+        showProgress('図書コードを確認中…', 100);
+        const ccMap = await fetchCcodes(allBooks.map(b => b.isbn));
+        allBooks.forEach(b => { b.ccode = ccMap.get(b.isbn) || null; b.excluded = isExcludedCcode(b.ccode); });
+      } catch (e) {
+        allBooks.forEach(b => { b.ccode = null; b.excluded = false; });
+      } finally {
+        hideProgress();
+      }
+    }
+
+    // トグル変更時: 保存して、検索済みなら再フィルター
+    function onToggleExclude() {
+      saveData();
+      if (allBooks.length) applyPriceFilterAndDisplay();
+    }
+
     function applyPriceFilterAndDisplay() {
       const minPrice = parseInt(document.getElementById('minPrice').value) || 0;
       const maxPrice = parseInt(document.getElementById('maxPrice').value) || Infinity;
       
+      const excludeCb = document.getElementById('excludeIneligible');
+      const excludeOn = excludeCb ? excludeCb.checked : false;
+      let excludedCount = 0;
       filteredBooks = allBooks.filter(book => {
         const price = book.itemPrice || 0;
-        return price >= minPrice && price <= maxPrice;
+        if (price < minPrice || price > maxPrice) return false;
+        if (excludeOn && book.excluded) { excludedCount++; return false; }
+        return true;
       });
-      
+
       searchStats.filteredCount = filteredBooks.length;
+      searchStats.excludedCount = excludedCount;
       
       sortAndDisplayResults();
     }
