@@ -1241,10 +1241,34 @@ async function deleteRow(kind, id) {
   await loadAll();
 }
 
-function openImageView(url) {
+// データURL(JPEG等) を PNG のデータURLへ変換（ダウンロードはPNGで出力）
+async function toPngDataUrl(url) {
+  const img = await new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error("画像読み込み失敗"));
+    im.src = url;
+  });
+  const cv = document.createElement("canvas");
+  cv.width = img.naturalWidth || img.width;
+  cv.height = img.naturalHeight || img.height;
+  cv.getContext("2d").drawImage(img, 0, 0);
+  return cv.toDataURL("image/png");
+}
+
+async function openImageView(url) {
   $("imageModalImg").src = url;
-  $("imageDownloadLink").href = url;
+  const link = $("imageDownloadLink");
+  link.href = url;                 // 変換前でもクリック可（保険）
+  link.download = "receipt";
   $("imageModal").classList.add("show");
+  try {
+    link.href = await toPngDataUrl(url);
+    const ts = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
+    link.download = `receipt_${ts}.png`;
+  } catch (e) {
+    console.error("PNG変換失敗:", e); // 失敗時は元データURLのまま
+  }
 }
 
 async function saveBudget(kind) {
