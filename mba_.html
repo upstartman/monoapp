@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MBAファイナンス基礎 完全攻略解説ノート</title>
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+        color: #2d3748;
+        line-height: 1.6;
+        padding: 20px;
+        max-width: 900px;
+        margin: 0 auto;
+        background-color: #faf9f6;
+    }
+    .header-container {
+        background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+        color: #ffffff;
+        padding: 24px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+    }
+    .header-container h1 { margin: 0 0 8px 0; font-size: 20pt; }
+    .header-container .subtitle { margin: 0; font-size: 11pt; color: #e2e8f0; }
+    .toc-box {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-left: 5px solid #2b6cb0;
+        border-radius: 6px;
+        padding: 18px 22px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .toc-box h2 { margin-top: 0; margin-bottom: 12px; font-size: 13pt; color: #1a365d; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; }
+    .toc-list { list-style-type: none; padding-left: 0; margin: 0; }
+    .toc-list li { margin-bottom: 8px; font-size: 10.5pt; }
+    .toc-list li a { color: #2b6cb0; text-decoration: none; font-weight: bold; }
+    .toc-list ul { list-style-type: circle; padding-left: 20px; margin-top: 4px; margin-bottom: 4px; }
+    .toc-list ul li { font-weight: normal; color: #4a5568; }
+    h2.section-title {
+        color: #1a365d;
+        font-size: 14pt;
+        border-left: 5px solid #2b6cb0;
+        padding-left: 10px;
+        margin-top: 35px;
+        margin-bottom: 15px;
+    }
+    h3.subsection-title {
+        color: #2c5282;
+        font-size: 11.5pt;
+        margin-top: 25px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #cbd5e0;
+        padding-bottom: 4px;
+    }
+    .point-box {
+        background-color: #ebf8ff;
+        border: 1px solid #bee3f8;
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin-bottom: 15px;
+    }
+    .point-box .point-title { font-weight: bold; color: #2b6cb0; margin-bottom: 5px; }
+    .formula-box {
+        background-color: #ffffff;
+        border: 1px dashed #cbd5e0;
+        border-radius: 6px;
+        padding: 12px;
+        text-align: center;
+        margin: 15px 0;
+        font-size: 11pt;
+        font-weight: bold;
+        color: #1a365d;
+    }
+    table.custom-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        background-color: #ffffff;
+        font-size: 9.5pt;
+    }
+    table.custom-table th, table.custom-table td {
+        border: 1px solid #e2e8f0;
+        padding: 10px 12px;
+        text-align: left;
+    }
+    table.custom-table th { background-color: #2b6cb0; color: #ffffff; font-weight: 600; }
+    table.custom-table tr:nth-child(even) { background-color: #f7fafc; }
+</style>
+</head>
+<body>
+
+<div class="header-container">
+    <h1>MBAファイナンス基礎 完全攻略解説ノート</h1>
+    <div class="subtitle">企業価値最大化のための理論・投資評価・資本コストの徹底整理</div>
+</div>
+
+<div class="toc-box">
+    <h2>目次 (Table of Contents)</h2>
+    <ul class="toc-list">
+        <li><a href="#sec1">1. 企業経営と企業財務（ファイナンスの役割）</a>
+            <ul>
+                <li>会計と財務の根本的な違い</li>
+            </ul>
+        </li>
+        <li><a href="#sec2">2. ファイナンスの基本構造（投資理論 vs 企業金融理論）</a></li>
+        <li><a href="#sec3">3. 金銭の時間的価値と現在価値（PV）</a></li>
+        <li><a href="#sec4">4. DCF法（割引キャッシュフロー法）</a></li>
+        <li><a href="#sec5">5. 投資評価の決定手法（NPV・IRR・ペイバック法）</a></li>
+        <li><a href="#sec6">6. ポートフォリオ理論と分散投資の効果</a></li>
+        <li><a href="#sec7">7. CAPM（資本資産価格モデル）と証券市場線</a></li>
+        <li><a href="#sec8">8. 資金調達手段と資本コスト（WACC）</a></li>
+    </ul>
+</div>
+
+<h2 class="section-title" id="sec1">1. 企業経営と企業財務（ファイナンスの役割）</h2>
+<div class="point-box">
+    <div class="point-title">要点チェック</div>
+    企業財務の最終目標は<b>「企業価値の最大化」</b>です[span_0](start_span)[span_0](end_span)。経営陣は「①どこへ投資するか（投資意思決定）」と「②いかに資金を集めるか（資金調達意思決定）」を最適化する必要があります[span_1](start_span)[span_1](end_span)。
+</div>
+
+<h3 class="subsection-title">会計と財務の根本的な違い</h3>
+<table class="custom-table">
+    <thead>
+        <tr>
+            <th>項目</th>
+            <th>企業会計 (Accounting)</th>
+            <th>企業財務 (Finance)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <th>視点・時間軸</th>
+            <td><b>過去〜現在</b>（実績の記録）[span_2](start_span)[span_2](end_span)</td>
+            <td><b>将来</b>（将来キャッシュフローの予測）[span_3](start_span)[span_3](end_span)</td>
+        </tr>
+        <tr>
+            <th>主要な基準</th>
+            <td>所定の会計規則・損益（利益）[span_4](start_span)[span_4](end_span)</td>
+            <td>現金収支（キャッシュフロー）・価値[span_5](start_span)[span_5](end_span)</td>
+        </tr>
+        <tr>
+            <th>目的</th>
+            <td>ステークホルダーへの正確な業績報告[span_6](start_span)[span_6](end_span)</td>
+            <td>意思決定を通じた<b>企業価値の最大化</b>[span_7](start_span)[span_7](end_span)</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2 class="section-title" id="sec2">2. ファイナンスの基本構造</h2>
+<p>ファイナンス理論は、大きく分けて<b>「投資理論（インベストメント）」</b>と<b>「企業金融理論（コーポレート・ファイナンス）」</b>の2つで構成され、互いに表裏一体の関係にあります[span_8](start_span)[span_8](end_span)。</p>
+<ul>
+    <li><b>投資理論（資金の運用側 / 投資家の理論）</b>：リスクとリターンの関係、ポートフォリオによる分散効果、株式や債券などの資産価格決定メカニズムを扱います[span_9](start_span)[span_9](end_span)。</li>
+    <li><b>企業金融理論（資金の調達側 / 企業の理論）</b>：どのように資金を調達すれば企業価値を最大化できるか（最適資本構成、配当政策、投資評価）を扱います[span_10](start_span)[span_10](end_span)。</li>
+</ul>
+
+<h2 class="section-title" id="sec3">3. 金銭の時間的価値と現在価値（PV）</h2>
+<div class="point-box">
+    <div class="point-title">ファイナンスの大原則</div>
+    <b>「今日の1円は、明日の1円よりも価値が高い」</b>[span_11](start_span)[span_11](end_span)<br>
+    理由は①預金や投資で利息・リターンを生むことができるから、②将来の受け取りには「不確実性（リスク）」や「インフレリスク」が伴うからです[span_12](start_span)[span_12](end_span)。
+</div>
+
+<h3 class="subsection-title">現在価値（Present Value: PV）の計算</h3>
+<div class="formula-box">
+    PV = C / (1 + r)^n
+</div>
+<p>※ C: 将来のキャッシュフロー / r: 割引率（期待利回り） / n: 期間[span_13](start_span)[span_13](end_span)<br>
+<b>リスクが高いほど割引率は高く設定され、現在価値は小さくなります[span_14](start_span)[span_14](end_span)。</b></p>
+
+<h2 class="section-title" id="sec4">4. DCF法（割引キャッシュフロー法）</h2>
+<p>DCF法とは、<b>「ある資産の価値 ＝ その資産が将来生み出すキャッシュフローの現在価値の合計」</b>と定義して評価する手法です[span_15](start_span)[span_15](end_span)。</p>
+
+<ul>
+    <li><b>永久年金（一定額CFが永久に続く）</b>: <br><div class="formula-box">PV = CF / r</div>[span_16](start_span)[span_16](end_span)</li>
+    <li><b>割増永久年金（成長率gで増えながら永久に続く）</b>: <br><div class="formula-box">PV = CF1 / (r - g)</div>[span_17](start_span)[span_17](end_span)</li>
+</ul>
+
+<h2 class="section-title" id="sec5">5. 投資評価の決定手法</h2>
+<table class="custom-table">
+    <thead>
+        <tr>
+            <th>手法名</th>
+            <th>決定基準</th>
+            <th>長所・短所</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <th>① NPV法<br>(正味現在価値法)</th>
+            <td>NPV = (将来CFのPV) - (初期投資額)<br><b>判定：NPV ＞ 0 ならば実行</b>[span_18](start_span)[span_18](end_span)</td>
+            <td><b>【最推奨】</b> 理論的に最も正確。企業価値増加分がそのまま数値化できる[span_19](start_span)[span_19](end_span)。</td>
+        </tr>
+        <tr>
+            <th>② IRR法<br>(内部収益率法)</th>
+            <td>NPV = 0 となる割引率（IRR）を算出。<br><b>判定：IRR ＞ ハードルレート ならば実行</b>[span_20](start_span)[span_20](end_span)</td>
+            <td>直感的で分かりやすい。ただしCFが途中で正負反転する場合などに誤った判断を導くリスクがある[span_21](start_span)[span_21](end_span)。</td>
+        </tr>
+        <tr>
+            <th>③ ペイバック法<br>(回収期間法)</th>
+            <td>初期投資を何年で回収できるかを計算。<br><b>判定：回収期間 ＜ 設定期間 ならば実行</b>[span_22](start_span)[span_22](end_span)</td>
+            <td>理解しやすいが、<b>金銭の時間的価値や回収後のCFを無視する</b>ため不完全[span_23](start_span)[span_23](end_span)。</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2 class="section-title" id="sec6">6. ポートフォリオ理論と分散投資の効果</h2>
+<ul>
+    <li><b>アンシステマティック・リスク（個社固有リスク）</b>：銘柄数を増やす（分散投資する）ことで消去可能なリスク[span_24](start_span)[span_24](end_span)。</li>
+    <li><b>システマティック・リスク（市場全体リスク）</b>：景気変動や金利変動など、分散投資しても消去できないリスク[span_25](start_span)[span_25](end_span)。</li>
+</ul>
+
+<h2 class="section-title" id="sec7">7. CAPM（資本資産価格モデル）</h2>
+<div class="formula-box">
+    Ri = Rf + βi × (Rm - Rf)
+</div>
+<p>個別資産の期待リターン（Ri）は、無リスク資産利回り（Rf）と、市場全体のリスク連動度を表す<b>ベータ（βi）</b>、およびマーケット・リスク・プレミアム（Rm - Rf）によって決まります[span_26](start_span)[span_26](end_span)。</p>
+
+<h2 class="section-title" id="sec8">8. 資金調達手段と資本コスト（WACC）</h2>
+<p>負債コスト（rD）と株主資本コスト（rE）を加重平均した、企業全体の調達コストです。<b>企業は事業でWACC以上の利回りを達成しなければ投資家を満足させられません[span_27](start_span)[span_27](end_span)。</b></p>
+
+<div class="formula-box">
+    WACC = [ D / (D + E) ] × rD × (1 - 法人税率) + [ E / (D + E) ] × rE
+</div>
+<p>※ 支払利息は損金算入できるため、負債コストには節税効果 (1 - 法人税率) がかかります[span_28](start_span)[span_28](end_span)。</p>
+
+</body>
+</html>
