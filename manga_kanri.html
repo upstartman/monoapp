@@ -77,6 +77,23 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
 .num-stepper input{flex:1;min-width:0;text-align:center;}
 .num-stepper button{flex-shrink:0;width:52px;height:52px;border-radius:12px;border:1px solid var(--glass-border);background:var(--glass);color:#fff;font-size:26px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;}
 .num-stepper button:active{background:rgba(255,255,255,0.12);}
+.hist-summary{background:var(--glass);border:1px solid var(--glass-border);border-radius:11px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:1.7;}
+.hist-summary b{font-family:'Outfit',sans-serif;color:var(--accent);font-size:15px;}
+.hist-day{font-size:12px;font-weight:700;color:var(--accent);margin:16px 0 8px;}
+.hist-day:first-child{margin-top:0;}
+.hist-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--glass-border);}
+.hist-item:last-child{border-bottom:none;}
+.hist-time{flex-shrink:0;font-family:'Outfit',sans-serif;font-size:12px;color:var(--text-secondary);width:40px;padding-top:2px;}
+.hist-body{flex:1;min-width:0;}
+.hist-line{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.hist-badge{flex-shrink:0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;}
+.hist-badge.add{background:rgba(52,211,153,0.15);color:var(--done);}
+.hist-badge.edit{background:rgba(99,102,241,0.2);color:#a5b4fc;}
+.hist-badge.del{background:rgba(239,68,68,0.15);color:#f87171;}
+.hist-badge.fav{background:rgba(251,191,36,0.15);color:var(--gold);}
+.hist-title{font-size:14px;font-weight:600;word-break:break-word;}
+.hist-detail{font-size:12px;color:var(--text-secondary);margin-top:2px;}
+.hist-empty{text-align:center;padding:40px 20px;color:var(--text-secondary);font-size:14px;}
 .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;background:var(--glass);border:1px solid var(--glass-border);border-radius:11px;margin-bottom:12px;cursor:pointer;}
 .toggle-row .tl{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;}
 .toggle-row .tl .em{font-size:20px;}
@@ -109,6 +126,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
         <div class="logo-text">マンガ管理</div>
       </div>
       <div class="header-btns">
+        <div class="icon-btn" id="histBtn" title="更新履歴">🕒</div>
         <div class="icon-btn add" id="addBtn">＋</div>
       </div>
     </div>
@@ -180,6 +198,17 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
       <button class="btn btn-primary" id="saveBtn">保存</button>
       <button class="btn btn-danger" id="deleteBtn" style="display:none;">削除</button>
     </div>
+  </div>
+</div>
+
+<!-- 更新履歴モーダル -->
+<div class="modal" id="histModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>更新履歴</h2>
+      <button class="modal-close" id="histClose">×</button>
+    </div>
+    <div class="modal-body" id="histBody"></div>
   </div>
 </div>
 
@@ -451,6 +480,7 @@ let searchQuery = '';
 let editId = null;
 let unsubscribe = null;
 let inflight = 0;   // 未確定（サーバー確定待ち）の保存件数
+let historyLog = [];   // 更新履歴（新しい順）
 
 // ===== ユーティリティ =====
 function uid(){ return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -488,9 +518,11 @@ function initPersistence(){
 function applySnapshot(doc){
     if(doc.exists && Array.isArray(doc.data().data)){
         mangaList = doc.data().data.map(x=>({favorite:false,finished:false,owned:false,bought:0,read:0,yomi:'',...x, id:x.id||uid()}));
+        historyLog = Array.isArray(doc.data().history) ? doc.data().history : [];
     } else {
         // 初回：シードデータで初期化
         mangaList = SEED.map(x=>({...x, id:uid()}));
+        historyLog = [];
         saveNow();
     }
     render();
@@ -516,7 +548,7 @@ async function saveNow(){
     setSync('syncing');
     inflight++;   // 同期的に加算 → この後に届くスナップショットの上書きを防ぐ
     try{
-        await DOC.set({ data: mangaList, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        await DOC.set({ data: mangaList, history: historyLog, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
     }catch(e){
         console.error('Save error:', e);
         toast('保存エラー', true);
@@ -527,6 +559,11 @@ async function saveNow(){
 }
 // ローカル変更を即時保存（描画も更新）
 function save(){ render(); saveNow(); }
+// 更新履歴に記録（新しい順・最大300件）
+function logHistory(type, title, detail){
+    historyLog.unshift({ ts: Date.now(), type, title, detail: detail||'' });
+    if(historyLog.length>300) historyLog.length = 300;
+}
 
 // ===== 描画 =====
 function filtered(){
@@ -579,7 +616,13 @@ function cardHtml(item){
 
 // ===== 操作 =====
 function find(id){ return mangaList.find(x=>x.id===id); }
-function toggleFav(id){ const it=find(id); if(!it)return; it.favorite=!it.favorite; save(); }
+function toggleFav(id){
+    const it=find(id); if(!it)return;
+    it.favorite=!it.favorite;
+    it.updatedAt=Date.now();
+    logHistory('fav', it.title, it.favorite?'お気に入りに追加':'お気に入りを解除');
+    save();
+}
 
 // ===== モーダル =====
 function setToggle(el,on){ el.classList.toggle('on',!!on); }
@@ -633,15 +676,38 @@ function saveModal(){
         favorite:document.getElementById('tgFav').classList.contains('on'),
         finished:document.getElementById('tgDone').classList.contains('on')
     };
-    if(editId){ Object.assign(find(editId), data); toast('更新しました'); }
-    else { mangaList.push({id:uid(),...data}); toast('追加しました'); }
+    const now=Date.now();
+    if(editId){
+        const old=find(editId);
+        const changes=diffManga(old, data);
+        Object.assign(old, data, {updatedAt:now});
+        if(changes.length) logHistory('edit', title, changes.join('、'));
+        toast('更新しました');
+    } else {
+        mangaList.push({id:uid(), ...data, createdAt:now, updatedAt:now});
+        logHistory('add', title, '新規登録'+(read?`（既読 ${read}巻）`:''));
+        toast('追加しました');
+    }
     closeModal();
     save();
+}
+// 変更点を日本語で列挙（履歴用）
+function diffManga(o, n){
+    const c=[];
+    if(o.title!==n.title) c.push(`タイトル「${o.title}」→「${n.title}」`);
+    if((o.read||0)!==n.read) c.push(`既読 ${o.read||0}→${n.read}巻`);
+    if(!!o.owned!==n.owned) c.push(n.owned?'購入ON':'購入OFF');
+    if(n.owned && (o.bought||0)!==n.bought) c.push(`購入 ${o.bought||0}→${n.bought}巻`);
+    if(!!o.favorite!==n.favorite) c.push(n.favorite?'お気に入りON':'お気に入りOFF');
+    if(!!o.finished!==n.finished) c.push(n.finished?'完結ON':'完結OFF');
+    if((o.yomi||'')!==n.yomi) c.push('よみがな変更');
+    return c;
 }
 function deleteCurrent(){
     if(!editId) return;
     const it=find(editId);
     if(!confirm(`「${it?it.title:''}」を削除しますか？`)) return;
+    if(it) logHistory('del', it.title, '削除');
     mangaList = mangaList.filter(x=>x.id!==editId);
     closeModal();
     toast('削除しました');
@@ -655,6 +721,58 @@ function toast(msg,isErr){
     t.className='toast show'+(isErr?' error':'');
     setTimeout(()=>t.classList.remove('show'),2500);
 }
+
+// ===== 更新履歴ビュー =====
+const HIST_LABEL={add:'追加',edit:'更新',del:'削除',fav:'お気に入り'};
+function pad2(n){ return (n<10?'0':'')+n; }
+function dayLabel(d){
+    const now=new Date();
+    const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const that=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    const diff=Math.round((today-that)/86400000);
+    if(diff===0) return '今日';
+    if(diff===1) return '昨日';
+    const w=['日','月','火','水','木','金','土'][d.getDay()];
+    return `${d.getMonth()+1}月${d.getDate()}日(${w})`;
+}
+function relTime(ts){
+    const m=Math.floor((Date.now()-ts)/60000);
+    if(m<1) return 'たった今';
+    if(m<60) return m+'分前';
+    const h=Math.floor(m/60);
+    if(h<24) return h+'時間前';
+    return Math.floor(h/24)+'日前';
+}
+function openHistory(){
+    const body=document.getElementById('histBody');
+    if(!historyLog.length){
+        body.innerHTML='<div class="hist-empty">まだ更新履歴はありません。<br>追加・編集・お気に入りの操作がここに記録されます。</div>';
+        document.getElementById('histModal').classList.add('open');
+        return;
+    }
+    // 直近の入力忘れチェック用サマリー
+    const startToday=new Date(); startToday.setHours(0,0,0,0);
+    const todayN=historyLog.filter(h=>h.ts>=startToday.getTime()).length;
+    const week=historyLog.filter(h=>h.ts>=Date.now()-7*86400000).length;
+    let html=`<div class="hist-summary">最終更新：<b>${relTime(historyLog[0].ts)}</b><br>本日の更新：<b>${todayN}</b> 件 ／ 直近7日：<b>${week}</b> 件</div>`;
+    let lastDay=null;
+    for(const h of historyLog){
+        const d=new Date(h.ts);
+        const dl=dayLabel(d);
+        if(dl!==lastDay){ html+=`<div class="hist-day">${dl}</div>`; lastDay=dl; }
+        const cls=h.type==='add'?'add':h.type==='del'?'del':h.type==='fav'?'fav':'edit';
+        html+=`<div class="hist-item">
+            <div class="hist-time">${pad2(d.getHours())}:${pad2(d.getMinutes())}</div>
+            <div class="hist-body">
+                <div class="hist-line"><span class="hist-badge ${cls}">${HIST_LABEL[h.type]||'更新'}</span><span class="hist-title">${escapeHtml(h.title)}</span></div>
+                ${h.detail?`<div class="hist-detail">${escapeHtml(h.detail)}</div>`:''}
+            </div>
+        </div>`;
+    }
+    body.innerHTML=html;
+    document.getElementById('histModal').classList.add('open');
+}
+function closeHistory(){ document.getElementById('histModal').classList.remove('open'); }
 
 // ===== タイトルの予測変換（実在マンガの候補） =====
 // AniList API(日本語タイトル)を主に、失敗時は Jikan(MyAnimeList) を予備に使用。
@@ -721,6 +839,9 @@ function pickAc(el){
 document.getElementById('fTitle').addEventListener('input',function(){ scheduleAc(this.value.trim()); });
 document.getElementById('fTitle').addEventListener('blur',()=>setTimeout(hideAc,150));
 document.getElementById('addBtn').onclick=openAdd;
+document.getElementById('histBtn').onclick=openHistory;
+document.getElementById('histClose').onclick=closeHistory;
+document.getElementById('histModal').addEventListener('click',e=>{ if(e.target.id==='histModal') closeHistory(); });
 document.getElementById('modalClose').onclick=closeModal;
 document.getElementById('saveBtn').onclick=saveModal;
 document.getElementById('deleteBtn').onclick=deleteCurrent;
