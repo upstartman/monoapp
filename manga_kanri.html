@@ -166,7 +166,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
       <div class="fg">
         <label>よみがな（あいうえお順の並べ替えに使用）</label>
         <input type="text" id="fYomi" placeholder="例：わんぴーす">
-        <div class="hint">ひらがなで入力してください。空欄の場合はタイトルで並べ替えます。</div>
+        <div class="hint">タイトル欄で打ったひらがなが自動で入ります（手で直すこともできます）。空欄の場合はタイトルで並べ替えます。</div>
       </div>
       <div class="fg">
         <label>読んでいる巻数</label>
@@ -633,6 +633,7 @@ function setToggle(el,on){ el.classList.toggle('on',!!on); }
 function bump(id,d){ const el=document.getElementById(id); el.value=Math.max(0,(parseInt(el.value)||0)+d); }
 function openAdd(){
     editId=null;
+    resetYomiAuto(true);
     document.getElementById('modalTitle').textContent='マンガを追加';
     document.getElementById('fTitle').value='';
     document.getElementById('fYomi').value='';
@@ -650,6 +651,7 @@ function openAdd(){
 function openEdit(id){
     const it=find(id); if(!it)return;
     editId=id;
+    resetYomiAuto(!it.yomi); // よみがな未入力の作品だけ自動入力
     document.getElementById('modalTitle').textContent='編集';
     document.getElementById('fTitle').value=it.title;
     document.getElementById('fYomi').value=it.yomi||'';
@@ -833,13 +835,39 @@ function pickAc(el){
     const t=el.getAttribute('data-t');
     document.getElementById('fTitle').value=t;
     const yomiEl=document.getElementById('fYomi');
-    if(!yomiEl.value && isKana(t)) yomiEl.value=toHira(t); // かなタイトルはよみがなを自動補完
+    if((yomiAuto || !yomiEl.value) && isKana(t)) yomiEl.value=toHira(t); // かなタイトルはよみがなを自動補完
     hideAc();
     yomiEl.focus();
 }
 
 // ===== イベント =====
 document.getElementById('fTitle').addEventListener('input',function(){ scheduleAc(this.value.trim()); });
+// ===== タイトル入力のひらがなをよみがなへ自動入力 =====
+// 日本語入力の変換前（ひらがな）の文字列を記録し、漢字に変換してもよみがなとして使う。
+let yomiAuto=true, yomiDone='', yomiSeg='', composing=false;
+function resetYomiAuto(on){ yomiAuto=on; yomiDone=''; yomiSeg=''; composing=false; }
+function syncYomi(){ if(yomiAuto) document.getElementById('fYomi').value=yomiDone+yomiSeg; }
+(function(){
+    const t=document.getElementById('fTitle');
+    t.addEventListener('compositionstart',()=>{ composing=true; yomiSeg=''; });
+    t.addEventListener('compositionupdate',e=>{ if(e.data && isKana(e.data)){ yomiSeg=toHira(e.data); syncYomi(); } });
+    t.addEventListener('compositionend',e=>{
+        composing=false;
+        if(e.data && isKana(e.data)) yomiSeg=toHira(e.data);
+        yomiDone+=yomiSeg; yomiSeg='';
+        if(isKana(t.value)) yomiDone=toHira(t.value.trim()); // 全部かなならタイトルそのもの
+        syncYomi();
+    });
+    t.addEventListener('input',e=>{
+        if(composing || e.isComposing) return;
+        const v=t.value.trim();
+        if(!v) yomiDone='';                       // 全部消したらリセット
+        else if(isKana(v)) yomiDone=toHira(v);   // 変換なしの入力・削除
+        syncYomi();
+    });
+    // よみがな欄を手で編集したら自動入力を止める
+    document.getElementById('fYomi').addEventListener('input',()=>{ yomiAuto=false; });
+})();
 document.getElementById('fTitle').addEventListener('blur',()=>setTimeout(hideAc,150));
 document.getElementById('addBtn').onclick=openAdd;
 document.getElementById('histBtn').onclick=openHistory;
