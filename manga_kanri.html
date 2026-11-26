@@ -27,10 +27,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
 .search-wrap input:focus{outline:none;border-color:var(--primary);}
 .search-wrap .si{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.6;}
 .search-wrap .sc{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;background:transparent;color:var(--text-secondary);font-size:18px;cursor:pointer;display:none;}
-.tabs{display:flex;gap:8px;margin-top:8px;}
-.tab{flex:1;padding:7px 6px;background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;font-size:13px;font-weight:600;color:var(--text-secondary);cursor:pointer;text-align:center;}
+.tabs{display:flex;gap:6px;margin-top:8px;}
+.tab{flex:1;padding:7px 4px;white-space:nowrap;background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;font-size:13px;font-weight:600;color:var(--text-secondary);cursor:pointer;text-align:center;}
 .tab.active{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;border-color:transparent;}
-.tab .cnt{font-size:11px;opacity:.8;margin-left:4px;}
+.tab .cnt{font-size:11px;opacity:.8;margin-left:3px;}
 .main{padding:150px 12px 60px;max-width:640px;margin:0 auto;}
 .stats{font-size:11px;color:var(--text-secondary);margin-bottom:10px;text-align:center;}
 .group-head{display:flex;align-items:center;gap:8px;margin:14px 0 7px;}
@@ -139,6 +139,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg-dark);color:var(-
       <div class="tab active" data-filter="all">すべて<span class="cnt" id="cntAll"></span></div>
       <div class="tab" data-filter="own">購入<span class="cnt" id="cntOwn"></span></div>
       <div class="tab" data-filter="fav">お気に入り<span class="cnt" id="cntFav"></span></div>
+      <div class="tab" data-filter="zero">0巻<span class="cnt" id="cntZero"></span></div>
     </div>
   </div>
 </div>
@@ -571,6 +572,7 @@ function filtered(){
     return mangaList.filter(item=>{
         if(currentFilter==='own' && !item.owned) return false;
         if(currentFilter==='fav' && !item.favorite) return false;
+        if(currentFilter==='zero' && (item.read||0)!==0) return false;
         if(q){
             const hay = toHira((item.title+' '+(item.yomi||'')).toLowerCase());
             if(hay.indexOf(q)<0) return false;
@@ -583,6 +585,7 @@ function render(){
     document.getElementById('cntAll').textContent = mangaList.length;
     document.getElementById('cntOwn').textContent = mangaList.filter(x=>x.owned).length;
     document.getElementById('cntFav').textContent = mangaList.filter(x=>x.favorite).length;
+    document.getElementById('cntZero').textContent = mangaList.filter(x=>(x.read||0)===0).length;
 
     const items = filtered();
     const stats = document.getElementById('stats');
@@ -852,13 +855,15 @@ document.getElementById('tgOwn').onclick=function(){
 };
 document.getElementById('tgFav').onclick=function(){ this.classList.toggle('on'); };
 document.getElementById('tgDone').onclick=function(){ this.classList.toggle('on'); };
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-    t.classList.add('active');
-    currentFilter=t.dataset.filter;
+function setFilter(f){
+    document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.filter===f));
+    currentFilter=f;
     render();
-});
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>setFilter(t.dataset.filter));
 const searchEl=document.getElementById('search');
+// 検索バーを押したら「すべて」に切り替え（全作品から検索できるように）
+searchEl.addEventListener('focus',()=>{ if(currentFilter!=='all') setFilter('all'); });
 searchEl.addEventListener('input',()=>{
     searchQuery=searchEl.value;
     document.getElementById('searchClear').style.display=searchQuery?'block':'none';
